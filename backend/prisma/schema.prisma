@@ -1,0 +1,382 @@
+// ===== Esquema de Base de Datos — Sistema HSE =====
+// Cada modelo y campo está documentado en español
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ===== ENUMS =====
+
+enum Rol {
+  COORDINADOR  // Administrador del sistema HSE
+  SUPERVISOR   // Usuario de campo
+  JEFATURA     // Solo lectura, dashboards
+}
+
+enum EstadoSalud {
+  APTO
+  NO_APTO
+  APTO_CON_RESTRICCIONES
+}
+
+enum EstadoEquipo {
+  OPERATIVO
+  EN_MANTENIMIENTO
+  BAJA_TECNICA
+}
+
+enum SeveridadFalta {
+  LEVE
+  GRAVE
+  CRITICA
+}
+
+enum EstadoInspeccion {
+  EN_PROGRESO
+  COMPLETADA
+  CANCELADA
+}
+
+// ===== USUARIOS DEL SISTEMA =====
+
+model Usuario {
+  id              String   @id @default(uuid())
+  correo          String   @unique
+  contrasena      String   // Hash bcrypt
+  nombreCompleto  String
+  rol             Rol
+  activo          Boolean  @default(true)
+  creadoEn        DateTime @default(now())
+  actualizadoEn   DateTime @updatedAt
+
+  // Relaciones
+  supervisor      Supervisor?
+  registrosAudit  RegistroAuditoria[]
+  notificaciones  Notificacion[]
+
+  @@map("usuarios")
+}
+
+// ===== MÓDULO 1: BASE DE DATOS MAESTRA =====
+
+model Sucursal {
+  id          String   @id @default(uuid())
+  nombre      String   @unique
+  direccion   String?
+  latitud     Float?
+  longitud    Float?
+  activa      Boolean  @default(true)
+  creadoEn    DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  // Relaciones
+  trabajadores    Trabajador[]
+  supervisores    SupervisorSucursal[]
+  inspecciones    Inspeccion[]
+  amonestaciones  Amonestacion[]
+
+  @@map("sucursales")
+}
+
+model Trabajador {
+  id                  String       @id @default(uuid())
+  dni                 String       @unique
+  nombreCompleto      String
+  cargo               String
+  tipoSangre          String?
+  telefonoEmergencia  String?
+  contactoEmergencia  String?
+  estadoSalud         EstadoSalud  @default(APTO)
+  
+  // Tallas de EPP
+  tallaCasco          String?
+  tallaCamisa         String?
+  tallaPantalon       String?
+  tallaCalzado        String?
+  tallaGuantes        String?
+
+  // Código QR único
+  codigoQr            String?      @unique
+
+  sucursalId          String
+  activo              Boolean      @default(true)
+  creadoEn            DateTime     @default(now())
+  actualizadoEn       DateTime     @updatedAt
+
+  // Relaciones
+  sucursal            Sucursal           @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  entregasEpp         EntregaEpp[]
+  capacitaciones      Capacitacion[]
+  amonestaciones      Amonestacion[]
+  incidentes          Incidente[]
+  inspecciones        InspeccionTrabajador[]
+
+  @@map("trabajadores")
+}
+
+model Supervisor {
+  id          String   @id @default(uuid())
+  usuarioId   String   @unique
+  telefono    String?
+  creadoEn    DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  // Relaciones
+  usuario        Usuario              @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  sucursales     SupervisorSucursal[]
+  inspecciones   Inspeccion[]
+  amonestaciones Amonestacion[]
+
+  @@map("supervisores")
+}
+
+model SupervisorSucursal {
+  id           String   @id @default(uuid())
+  supervisorId String
+  sucursalId   String
+
+  supervisor   Supervisor @relation(fields: [supervisorId], references: [id], onDelete: Cascade)
+  sucursal     Sucursal   @relation(fields: [sucursalId], references: [id], onDelete: Cascade)
+
+  @@unique([supervisorId, sucursalId])
+  @@map("supervisor_sucursal")
+}
+
+model Equipo {
+  id              String       @id @default(uuid())
+  nombre          String
+  marca           String?
+  modelo          String?
+  numeroSerie     String       @unique
+  estado          EstadoEquipo @default(OPERATIVO)
+  descripcion     String?
+  manualUrl       String?      // Ruta al manual técnico adjunto
+  creadoEn        DateTime     @default(now())
+  actualizadoEn   DateTime     @updatedAt
+
+  // Relaciones
+  calibraciones   Calibracion[]
+
+  @@map("equipos")
+}
+
+model Calibracion {
+  id                      String   @id @default(uuid())
+  equipoId                String
+  fechaCalibracion        DateTime
+  proximaCalibracion      DateTime
+  certificadoUrl          String?  // Ruta al certificado
+  observaciones           String?
+  creadoEn                DateTime @default(now())
+
+  // Relaciones
+  equipo                  Equipo   @relation(fields: [equipoId], references: [id], onDelete: Cascade)
+
+  @@map("calibraciones")
+}
+
+// ===== MATRIZ IPC =====
+
+model MatrizIpc {
+  id                    String   @id @default(uuid())
+  cargo                 String
+  ubicacion             String
+  eppsObligatorios      Json     // JSONB: Array de EPPs requeridos
+  herramientasRequeridas Json    // JSONB: Array de herramientas
+  capacitacionesRequeridas Json  // JSONB: Array de capacitaciones
+  descripcion           String?
+  activo                Boolean  @default(true)
+  creadoEn              DateTime @default(now())
+  actualizadoEn         DateTime @updatedAt
+
+  @@unique([cargo, ubicacion])
+  @@map("matriz_ipc")
+}
+
+// ===== MÓDULO 2: PERFIL 360° (ENTREGAS Y CAPACITACIONES) =====
+
+model EntregaEpp {
+  id              String   @id @default(uuid())
+  trabajadorId    String
+  tipoEpp         String   // Ej: "Casco dieléctrico", "Arnés"
+  marca           String?
+  talla           String?
+  fechaEntrega    DateTime
+  fechaVencimiento DateTime?
+  observaciones   String?
+  creadoEn        DateTime @default(now())
+
+  // Relaciones
+  trabajador      Trabajador @relation(fields: [trabajadorId], references: [id], onDelete: Cascade)
+
+  @@map("entregas_epp")
+}
+
+model Capacitacion {
+  id                String   @id @default(uuid())
+  trabajadorId      String
+  nombreCurso       String   // Ej: "Trabajo en altura", "Riesgo eléctrico"
+  institucion       String?
+  fechaRealizacion  DateTime
+  fechaVencimiento  DateTime?
+  certificadoUrl    String?
+  vigente           Boolean  @default(true)
+  creadoEn          DateTime @default(now())
+
+  // Relaciones
+  trabajador        Trabajador @relation(fields: [trabajadorId], references: [id], onDelete: Cascade)
+
+  @@map("capacitaciones")
+}
+
+// ===== MÓDULO 3: INSPECCIONES =====
+
+model Inspeccion {
+  id              String            @id @default(uuid())
+  supervisorId    String
+  sucursalId      String
+  ubicacion       String            // Zona específica del trabajo
+  tipoTrabajo     String            // Ej: "Trabajo en Altura", "Excavación"
+  estado          EstadoInspeccion   @default(EN_PROGRESO)
+  
+  // Checklist dinámico generado desde la Matriz IPC
+  checklist       Json              // JSONB: items del checklist con sus estados
+  observaciones   String?
+  
+  // Cierre
+  firmaSupervisor Boolean           @default(false)
+  latitudCierre   Float?
+  longitudCierre  Float?
+  fechaCierre     DateTime?
+
+  creadoEn        DateTime          @default(now())
+  actualizadoEn   DateTime          @updatedAt
+
+  // Relaciones
+  supervisor      Supervisor         @relation(fields: [supervisorId], references: [id], onDelete: Restrict)
+  sucursal        Sucursal           @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  fotos           FotoInspeccion[]
+  trabajadores    InspeccionTrabajador[]
+
+  @@map("inspecciones")
+}
+
+model InspeccionTrabajador {
+  id              String   @id @default(uuid())
+  inspeccionId    String
+  trabajadorId    String
+
+  inspeccion      Inspeccion  @relation(fields: [inspeccionId], references: [id], onDelete: Cascade)
+  trabajador      Trabajador  @relation(fields: [trabajadorId], references: [id], onDelete: Restrict)
+
+  @@unique([inspeccionId, trabajadorId])
+  @@map("inspeccion_trabajador")
+}
+
+model FotoInspeccion {
+  id              String   @id @default(uuid())
+  inspeccionId    String
+  rutaArchivo     String
+  descripcion     String?
+  fechaCaptura    DateTime @default(now())
+  metadatos       Json?    // JSONB: fecha, hora, dispositivo
+
+  // Relaciones
+  inspeccion      Inspeccion @relation(fields: [inspeccionId], references: [id], onDelete: Cascade)
+
+  @@map("fotos_inspeccion")
+}
+
+// ===== MÓDULO 4: AMONESTACIONES E INCIDENTES =====
+
+model Amonestacion {
+  id              String          @id @default(uuid())
+  trabajadorId    String
+  supervisorId    String
+  sucursalId      String
+  
+  motivo          String          // Ej: "No uso de EPP", "Acto inseguro"
+  severidad       SeveridadFalta
+  descripcion     String          // Relatoría de los hechos
+  testimonios     String?         // Testimonios breves
+  
+  fechaEvento     DateTime
+  creadoEn        DateTime        @default(now())
+  actualizadoEn   DateTime        @updatedAt
+
+  // Relaciones
+  trabajador      Trabajador      @relation(fields: [trabajadorId], references: [id], onDelete: Restrict)
+  supervisor      Supervisor      @relation(fields: [supervisorId], references: [id], onDelete: Restrict)
+  sucursal        Sucursal        @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  fotos           FotoAmonestacion[]
+  incidentes      Incidente[]
+
+  @@map("amonestaciones")
+}
+
+model FotoAmonestacion {
+  id              String   @id @default(uuid())
+  amonestacionId  String
+  rutaArchivo     String
+  descripcion     String?
+  fechaCaptura    DateTime @default(now())
+
+  // Relaciones
+  amonestacion    Amonestacion @relation(fields: [amonestacionId], references: [id], onDelete: Cascade)
+
+  @@map("fotos_amonestacion")
+}
+
+model Incidente {
+  id              String   @id @default(uuid())
+  trabajadorId    String
+  amonestacionId  String?
+  descripcion     String
+  ubicacion       String?
+  fechaEvento     DateTime
+  creadoEn        DateTime @default(now())
+
+  // Relaciones
+  trabajador      Trabajador    @relation(fields: [trabajadorId], references: [id], onDelete: Restrict)
+  amonestacion    Amonestacion? @relation(fields: [amonestacionId], references: [id], onDelete: SetNull)
+
+  @@map("incidentes")
+}
+
+// ===== MÓDULO 5: AUDIT LOG Y NOTIFICACIONES =====
+
+model RegistroAuditoria {
+  id          String   @id @default(uuid())
+  usuarioId   String
+  accion      String   // Ej: "CREAR_TRABAJADOR", "EDITAR_INSPECCION"
+  entidad     String   // Ej: "Trabajador", "Inspeccion"
+  entidadId   String?
+  detalles    Json?    // JSONB: datos adicionales del cambio
+  ip          String?
+  creadoEn    DateTime @default(now())
+
+  // Relaciones
+  usuario     Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@map("registros_auditoria")
+}
+
+model Notificacion {
+  id              String   @id @default(uuid())
+  destinatarioId  String
+  tipo            String   // Ej: "FALTA_CRITICA", "VENCIMIENTO_CALIBRACION"
+  titulo          String
+  mensaje         String
+  leida           Boolean  @default(false)
+  enviadaPorEmail Boolean  @default(false)
+  creadoEn        DateTime @default(now())
+
+  // Relaciones
+  destinatario    Usuario  @relation(fields: [destinatarioId], references: [id], onDelete: Cascade)
+
+  @@map("notificaciones")
+}

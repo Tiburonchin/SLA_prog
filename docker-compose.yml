@@ -1,0 +1,19 @@
+# Archivo de configuración para levantar PostgreSQL localmente
+version: '3.8'
+
+services:
+  db_hse:
+    image: postgres:15-alpine
+    container_name: hse_postgres_db
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: Ramosa        # Tu usuario maestro
+      POSTGRES_PASSWORD: Ramosa3097 # Tu contraseña maestra
+      POSTGRES_DB: hse_database       # El nombre de tu base de datos
+    volumes:
+      - hse_db_data:/var/lib/postgresql/data # Guarda los datos permanentemente
+
+volumes:
+  hse_db_data:

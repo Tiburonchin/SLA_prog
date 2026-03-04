@@ -1,0 +1,152 @@
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Acta de Inspección</title>
+    <style>
+      body {
+        font-family: "Helvetica", "Arial", sans-serif;
+        padding: 20px;
+        color: #333;
+      }
+      h1 {
+        text-align: center;
+        color: #0f172a;
+        margin-bottom: 5px;
+      }
+      .header-info {
+        text-align: center;
+        color: #64748b;
+        margin-bottom: 30px;
+        font-size: 14px;
+      }
+      .section {
+        margin-bottom: 20px;
+      }
+      .section-title {
+        background-color: #f1f5f9;
+        padding: 8px;
+        font-weight: bold;
+        border-left: 4px solid #3b82f6;
+        margin-bottom: 10px;
+      }
+      .info-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 15px;
+      }
+      .info-label {
+        font-weight: bold;
+        color: #475569;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+      }
+      th,
+      td {
+        border: 1px solid #cbd5e1;
+        padding: 8px;
+        text-align: left;
+      }
+      th {
+        background-color: #f8fafc;
+        color: #334155;
+      }
+      .status-ok {
+        color: #16a34a;
+        font-weight: bold;
+      }
+      .status-fail {
+        color: #dc2626;
+        font-weight: bold;
+      }
+      .footer {
+        margin-top: 50px;
+        text-align: center;
+        font-size: 12px;
+        color: #94a3b8;
+      }
+      .signature-area {
+        margin-top: 40px;
+        text-align: center;
+      }
+      .signature-line {
+        width: 200px;
+        border-bottom: 1px solid #333;
+        margin: 0 auto 5px auto;
+      }
+    </style>
+  </head>
+  <body>
+
+    <h1>ACTA DE INSPECCIÓN HSE</h1>
+    <div class="header-info">
+      ID:
+      {{id}}
+      | Fecha de Cierre:
+      {{fechaCierre}}
+      | Estado:
+      {{estado}}
+    </div>
+
+    <div class="section">
+      <div class="section-title">Datos Generales</div>
+      <div class="info-grid">
+        <div><span class="info-label">Sucursal:</span> {{sucursal}}</div>
+        <div><span class="info-label">Ubicación:</span> {{ubicacion}}</div>
+        <div><span class="info-label">Supervisor:</span> {{supervisor}}</div>
+        <div><span class="info-label">Tipo de Trabajo:</span>
+          {{tipoTrabajo}}</div>
+        <div style="grid-column: span 2;"><span class="info-label">Trabajadores
+            involucrados:</span>
+          {{trabajadores}}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Checklist de Inspección</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Punto a evaluar</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each checklist}}
+            <tr>
+              <td>{{this.item}}</td>
+              <td>
+                {{#if this.status}}
+                  <span class="status-ok">CONFIRMADO</span>
+                {{else}}
+                  <span class="status-fail">NO CONFIRMADO</span>
+                {{/if}}
+              </td>
+            </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Observaciones</div>
+      <p>{{observaciones}}</p>
+    </div>
+
+    <div class="signature-area">
+      <div class="signature-line"></div>
+      <div>Firma del Supervisor</div>
+      <div
+        style="color: #64748b; font-size: 12px; margin-top: 5px;"
+      >{{supervisor}}</div>
+    </div>
+
+    <div class="footer">
+      Sistema Integrado HSE. Documento generado automáticamente.
+    </div>
+
+  </body>
+</html>

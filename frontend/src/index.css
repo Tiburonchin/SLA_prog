@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+/* ===== Sistema HSE — Tema Global ===== */
+
+@theme {
+  /* Colores primarios — Azul Industrial */
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-300: #93c5fd;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  --color-primary-800: #1e40af;
+  --color-primary-900: #1e3a8a;
+
+  /* Colores de éxito — Verde Seguridad */
+  --color-exito-50: #f0fdf4;
+  --color-exito-500: #22c55e;
+  --color-exito-600: #16a34a;
+  --color-exito-700: #15803d;
+
+  /* Colores de advertencia — Amarillo */
+  --color-advertencia-50: #fffbeb;
+  --color-advertencia-500: #f59e0b;
+  --color-advertencia-600: #d97706;
+
+  /* Colores de peligro — Rojo */
+  --color-peligro-50: #fef2f2;
+  --color-peligro-500: #ef4444;
+  --color-peligro-600: #dc2626;
+  --color-peligro-700: #b91c1c;
+
+  /* Fondo oscuro */
+  --color-fondo-principal: #0f172a;
+  --color-fondo-card: #1e293b;
+  --color-fondo-sidebar: #0c1222;
+  --color-fondo-input: #1e293b;
+
+  /* Texto */
+  --color-texto-principal: #f1f5f9;
+  --color-texto-secundario: #94a3b8;
+  --color-texto-tenue: #64748b;
+
+  /* Bordes */
+  --color-borde: #334155;
+  --color-borde-claro: #475569;
+}
+
+/* ===== Estilos base ===== */
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family:
+    "Inter",
+    "Segoe UI",
+    system-ui,
+    -apple-system,
+    sans-serif;
+  background-color: var(--color-fondo-principal);
+  color: var(--color-texto-principal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===== Scrollbar personalizado ===== */
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-fondo-principal);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-borde);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-borde-claro);
+}
+
+/* ===== Animaciones ===== */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.25s ease-out forwards;
+}

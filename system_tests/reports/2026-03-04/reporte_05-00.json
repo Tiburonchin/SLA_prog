@@ -1,0 +1,191 @@
+{
+  "fechaEjecucion": "2026-03-04T05:00:50.256Z",
+  "resumen": {
+    "total": 30,
+    "aprobadas": 27,
+    "fallidas": 3,
+    "porcentaje": "90.0"
+  },
+  "pruebas": [
+    {
+      "id": "SEC-01",
+      "nombre": "Registro público bloqueado (requiere JWT+COORDINADOR)",
+      "estado": "✅ PASS",
+      "detalle": "Status: 401"
+    },
+    {
+      "id": "SEC-01b",
+      "nombre": "Supervisor no puede crear usuarios",
+      "estado": "✅ PASS",
+      "detalle": "Status: 403"
+    },
+    {
+      "id": "SEC-02",
+      "nombre": "Login con credenciales válidas retorna token",
+      "estado": "✅ PASS",
+      "detalle": "Status: 200"
+    },
+    {
+      "id": "SEC-02b",
+      "nombre": "Login con clave incorrecta → 401",
+      "estado": "✅ PASS",
+      "detalle": "Status: 401"
+    },
+    {
+      "id": "SEC-02c",
+      "nombre": "Anti-enumeración: mismo mensaje para user existente/inexistente",
+      "estado": "✅ PASS",
+      "detalle": "Msg1: \"Credenciales incorrectas\" | Msg2: \"Credenciales incorrectas\""
+    },
+    {
+      "id": "SEC-02d",
+      "nombre": "Normalización case-insensitive del correo",
+      "estado": "❌ FAIL",
+      "detalle": "Status: 400"
+    },
+    {
+      "id": "SEC-04a",
+      "nombre": "Ruta protegida sin token → 401",
+      "estado": "✅ PASS",
+      "detalle": "Status: 401"
+    },
+    {
+      "id": "SEC-04b",
+      "nombre": "Token JWT falso/corrupto → 401",
+      "estado": "✅ PASS",
+      "detalle": "Status: 401"
+    },
+    {
+      "id": "INJ-01",
+      "nombre": "SQLi en campo correo → rechazado por class-validator",
+      "estado": "✅ PASS",
+      "detalle": "Status: 400"
+    },
+    {
+      "id": "INJ-02",
+      "nombre": "UUID inválido en /trabajadores/:id → 400",
+      "estado": "✅ PASS",
+      "detalle": "Status: 400"
+    },
+    {
+      "id": "INJ-03",
+      "nombre": "UUID inválido en /inspecciones/:id → 400",
+      "estado": "✅ PASS",
+      "detalle": "Status: 400"
+    },
+    {
+      "id": "INJ-04",
+      "nombre": "Path traversal en /amonestaciones/:id → 400",
+      "estado": "❌ FAIL",
+      "detalle": "Status: 404"
+    },
+    {
+      "id": "SEC-08a",
+      "nombre": "Supervisor NO puede exportar CSV de inspecciones",
+      "estado": "✅ PASS",
+      "detalle": "Status: 403"
+    },
+    {
+      "id": "SEC-08b",
+      "nombre": "Supervisor NO puede exportar CSV de amonestaciones",
+      "estado": "✅ PASS",
+      "detalle": "Status: 403"
+    },
+    {
+      "id": "SEC-08c",
+      "nombre": "Coordinador SÍ puede exportar CSV inspecciones",
+      "estado": "✅ PASS",
+      "detalle": "Status: 200"
+    },
+    {
+      "id": "SEC-08d",
+      "nombre": "Jefatura SÍ puede exportar CSV amonestaciones",
+      "estado": "✅ PASS",
+      "detalle": "Status: 200"
+    },
+    {
+      "id": "RBAC-01",
+      "nombre": "Jefatura NO puede crear trabajadores",
+      "estado": "✅ PASS",
+      "detalle": "Status: 403"
+    },
+    {
+      "id": "RBAC-02",
+      "nombre": "Jefatura NO puede crear amonestaciones",
+      "estado": "✅ PASS",
+      "detalle": "Status: 403"
+    },
+    {
+      "id": "RBAC-03",
+      "nombre": "Supervisor NO puede acceder a reportes PDF",
+      "estado": "✅ PASS",
+      "detalle": "Status: 403"
+    },
+    {
+      "id": "FUN-01a",
+      "nombre": "Paginación en /trabajadores con metadata",
+      "estado": "✅ PASS",
+      "detalle": "Status: 200, keys: [\"datos\",\"total\",\"pagina\",\"limite\",\"totalPaginas\"]"
+    },
+    {
+      "id": "FUN-01b",
+      "nombre": "Paginación en /inspecciones",
+      "estado": "✅ PASS",
+      "detalle": "Status: 200"
+    },
+    {
+      "id": "FUN-01c",
+      "nombre": "Paginación en /amonestaciones",
+      "estado": "❌ FAIL",
+      "detalle": "Status: 400"
+    },
+    {
+      "id": "FUN-06",
+      "nombre": "Endpoint /inspecciones/recientes retorna máx 5",
+      "estado": "✅ PASS",
+      "detalle": "Status: 200, count: 5"
+    },
+    {
+      "id": "STATS-01",
+      "nombre": "Endpoint /inspecciones/estadisticas funcional",
+      "estado": "✅ PASS",
+      "detalle": "Status: 200"
+    },
+    {
+      "id": "STATS-02",
+      "nombre": "Endpoint /amonestaciones/estadisticas funcional",
+      "estado": "✅ PASS",
+      "detalle": "Status: 200"
+    },
+    {
+      "id": "STATS-03",
+      "nombre": "Endpoint /amonestaciones/estadisticas/por-sucursal funcional",
+      "estado": "✅ PASS",
+      "detalle": "Status: 200"
+    },
+    {
+      "id": "CRUD-01",
+      "nombre": "GET /sucursales funcional",
+      "estado": "✅ PASS",
+      "detalle": "Status: 200"
+    },
+    {
+      "id": "CRUD-02",
+      "nombre": "GET /equipos funcional",
+      "estado": "✅ PASS",
+      "detalle": "Status: 200"
+    },
+    {
+      "id": "CRUD-03",
+      "nombre": "GET /supervisores funcional",
+      "estado": "✅ PASS",
+      "detalle": "Status: 200"
+    },
+    {
+      "id": "SEC-03",
+      "nombre": "ThrottlerModule bloquea tras exceso de peticiones",
+      "estado": "✅ PASS",
+      "detalle": "429 recibidos: 1"
+    }
+  ]
+}

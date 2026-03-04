@@ -1,0 +1,17 @@
+{
+  "name": "hse-system-tests",
+  "version": "1.0.0",
+  "description": "Pruebas E2E y de vulnerabilidad del sistema HSE",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "keywords": [
+    "e2e",
+    "testing",
+    "security"
+  ],
+  "author": "",
+  "license": "ISC"
+}

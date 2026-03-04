@@ -1,0 +1,278 @@
+# Plan de Implementación — Sistema de Gestión HSE
+
+## 1. Resumen Ejecutivo
+
+Sistema web integral de Seguridad Laboral basado en el PRD y Tech Stack definidos. El desarrollo se organiza en **4 fases incrementales** con entregables funcionales en cada una. La arquitectura es un monorepo con frontend React/Vite y backend NestJS, conectados a PostgreSQL vía Prisma ORM.
+
+> [!IMPORTANT]
+> El proyecto se desarrolla con enfoque **Local-First**. PostgreSQL corre en Docker (ya configurado en [docker-compose.yml](file:///c:/Users/papaEdgar/Desktop/Programas/SLA_prog/docker-compose.yml)). No se desplegará a la nube hasta que toda la funcionalidad esté validada localmente.
+
+---
+
+## 2. Estructura del Proyecto (Monorepo)
+
+```
+SLA_prog/
+├── docker-compose.yml              # ✅ Ya existe (PostgreSQL 15)
+├── PRD - Sistema de Gestión HSE.md # ✅ Documentación
+├── Tech Stack - Sistema HSE.md     # ✅ Documentación
+│
+├── backend/                        # NestJS + TypeScript
+│   ├── src/
+│   │   ├── modules/
+│   │   │   ├── auth/               # Login, JWT, guards RBAC
+│   │   │   ├── users/              # Gestión de usuarios del sistema
+│   │   │   ├── workers/            # Módulo 1: Trabajadores
+│   │   │   ├── supervisors/        # Módulo 1: Supervisores
+│   │   │   ├── equipment/          # Módulo 1: Equipos y Calibraciones
+│   │   │   ├── locations/          # Módulo 1: Ubicaciones
+│   │   │   ├── ipc-matrix/         # Módulo 1: Matriz IPC
+│   │   │   ├── worker-profile/     # Módulo 2: Perfil 360°
+│   │   │   ├── inspections/        # Módulo 3: Inspecciones y Permisos
+│   │   │   ├── warnings/           # Módulo 4: Amonestaciones
+│   │   │   ├── incidents/          # Módulo 4: Incidentes
+│   │   │   ├── dashboard/          # Módulo 5: Dashboard y reportes
+│   │   │   └── notifications/      # Módulo 5: Emails y alertas
+│   │   ├── common/                 # Guards, interceptors, decorators
+│   │   ├── prisma/                 # Prisma service y configuración
+│   │   └── main.ts
+│   ├── prisma/
+│   │   └── schema.prisma           # Esquema de base de datos
+│   ├── uploads/                    # Fotos/evidencias (Fase Local)
+│   ├── .env
+│   ├── nest-cli.json
+│   ├── tsconfig.json
+│   └── package.json
+│
+├── frontend/                       # React + Vite + TypeScript
+│   ├── src/
+│   │   ├── components/             # Componentes reutilizables
+│   │   │   ├── ui/                 # shadcn/ui components
+│   │   │   ├── layout/             # Navbar, Sidebar, Layout
+│   │   │   └── shared/             # Tablas, Modales, Formularios
+│   │   ├── pages/                  # Vistas principales
+│   │   │   ├── auth/               # Login
+│   │   │   ├── workers/            # CRUD trabajadores
+│   │   │   ├── supervisors/        # CRUD supervisores
+│   │   │   ├── equipment/          # CRUD equipos
+│   │   │   ├── ipc-matrix/         # Configuración IPC
+│   │   │   ├── worker-profile/     # Expediente 360°
+│   │   │   ├── inspections/        # Formularios de inspección
+│   │   │   ├── warnings/           # Amonestaciones
+│   │   │   └── dashboard/          # Dashboard gerencial
+│   │   ├── stores/                 # Zustand stores
+│   │   ├── services/               # API calls (axios/fetch)
+│   │   ├── hooks/                  # Custom React hooks
+│   │   ├── types/                  # TypeScript interfaces
+│   │   ├── utils/                  # Helpers
+│   │   ├── App.tsx
+│   │   └── main.tsx
+│   ├── public/
+│   ├── index.html
+│   ├── tailwind.config.js
+│   ├── vite.config.ts
+│   ├── tsconfig.json
+│   └── package.json
+│
+└── docs/                           # Documentación adicional
+```
+
+---
+
+## 3. Esquema de Base de Datos (PostgreSQL + Prisma)
+
+### Tablas Principales
+
+| Tabla | Descripción | Relaciones Clave |
+|---|---|---|
+| `User` | Usuarios del sistema (login) | → rol (COORDINATOR, SUPERVISOR, MANAGEMENT) |
+| `Worker` | Trabajadores registrados | → Sucursal, EPP entregas, amonestaciones |
+| `Supervisor` | Supervisores con zonas | → User, Sucursales asignadas |
+| `Branch` | Sucursales/ubicaciones | → Trabajadores, Inspecciones |
+| `Equipment` | Equipos e instrumentos | → Calibraciones, Inspecciones |
+| `Calibration` | Historial de calibraciones | → Equipment |
+| `IpcMatrix` | Matriz peligros por cargo | → EPPs requeridos (JSONB), capacitaciones |
+| `EppDelivery` | Entregas de EPP | → Worker, tipo EPP, fecha |
+| `Training` | Capacitaciones/certificaciones | → Worker, vigencia |
+| `Inspection` | Inspecciones realizadas | → Supervisor, Location, checklist (JSONB) |
+| `InspectionPhoto` | Fotos de evidencia | → Inspection, ruta archivo |
+| `Warning` | Amonestaciones | → Worker, Supervisor, severidad, fotos |
+| `Incident` | Incidentes registrados | → Worker, Warning, ubicación |
+| `AuditLog` | Log inmutable de acciones | → User, acción, IP, timestamp |
+| `Notification` | Notificaciones enviadas | → destinatario, tipo, estado |
+
+> [!NOTE]
+> Los checklists dinámicos de inspección se almacenan como **JSONB** en PostgreSQL, permitiendo formularios condicionales sin alterar el esquema.
+
+---
+
+## 4. Fases de Desarrollo
+
+### FASE 0 — Fundación (Semana 1-2)
+> Objetivo: Infraestructura funcional de punta a punta.
+
+| # | Tarea | Detalle |
+|---|---|---|
+| 0.1 | Inicializar backend NestJS | `npx @nestjs/cli new backend` con TypeScript strict |
+| 0.2 | Inicializar frontend Vite+React | `npx create-vite frontend --template react-ts` |
+| 0.3 | Configurar Prisma ORM | Instalar Prisma, conectar a PostgreSQL Docker, crear `schema.prisma` base |
+| 0.4 | Definir esquema DB completo | Todas las tablas del punto 3, ejecutar `prisma migrate dev` |
+| 0.5 | Configurar Auth (JWT + bcrypt) | Módulo `auth/` en NestJS: registro, login, guards, roles RBAC |
+| 0.6 | Setup Tailwind + shadcn/ui | Configurar estilos, tema oscuro/claro, layout base responsive |
+| 0.7 | Layout principal | Sidebar, Navbar, rutas protegidas con React Router |
+| 0.8 | Conexión frontend↔backend | Axios instance, interceptores JWT, manejo de errores |
+
+**Entregable:** Login funcional con roles, layout responsive vacío, DB migrada.
+
+---
+
+### FASE 1 — Módulo 1: Base de Datos Maestra + Módulo 2: Perfil 360° (Semana 3-5)
+> Objetivo: CRUDs completos y expediente digital del trabajador.
+
+| # | Tarea | Detalle |
+|---|---|---|
+| 1.1 | CRUD Trabajadores | Formulario completo (datos personales, DNI, tallas EPP, tipo sangre, contactos emergencia, estado salud) |
+| 1.2 | CRUD Supervisores | Registro con asignación de sucursales/zonas y permisos |
+| 1.3 | CRUD Sucursales/Ubicaciones | Gestión de sedes con geolocalización opcional |
+| 1.4 | CRUD Equipos y Calibraciones | Inventario con marca, modelo, serie, manuales adjuntos, estados |
+| 1.5 | Matriz IPC configurable | Editor de reglas: cargo + ubicación → EPPs + herramientas + capacitaciones obligatorias |
+| 1.6 | Registro entregas de EPP | Formulario vinculado al trabajador con fechas |
+| 1.7 | Registro de capacitaciones | Capacitaciones con vigencia y semáforo (verde/amarillo/rojo) |
+| 1.8 | Perfil 360° del trabajador | Dashboard individual: datos, EPPs, historial, semáforo certificaciones |
+| 1.9 | Generador de código QR | QR único por trabajador con `qrcode` (npm), imprimible |
+| 1.10 | Escáner QR (móvil) | Integración `html5-qrcode` para abrir perfil 360 desde cámara |
+
+**Entregable:** Sistema funcional de gestión de personal con búsqueda, QR y perfil completo.
+
+---
+
+### FASE 2 — Módulo 3: Inspecciones + Módulo 4: Amonestaciones (Semana 6-8)
+> Objetivo: Operación de campo digitalizada.
+
+| # | Tarea | Detalle |
+|---|---|---|
+| 2.1 | Checklist dinámico | Motor que genera formulario según ubicación + IPC; campos condicionales |
+| 2.2 | Soporte Offline (PWA) | Configurar `vite-plugin-pwa` e IndexedDB (`localforage`/`idb`) para inspecciones sin red |
+| 2.3 | Captura de fotos inmutables | Acceso a cámara del dispositivo, metadatos de fecha/hora, sin galería |
+| 2.4 | Validación cruzada equipos | Al ingresar código de herramienta → cruce con calibraciones → alerta si vencida |
+| 2.5 | Cierre de inspección | Firma digital del supervisor (`react-signature-canvas`), GPS opcional, registro `AuditLog` |
+| 2.6 | Upload de archivos (Sincronización) | Almacenamiento local (IndexedDB) y envío al backend NestJS al reconectar |
+| 2.7 | Formulario amonestaciones | Campos: operario, supervisor (auto), sucursal, fecha/hora, <1 min |
+| 2.8 | Tipificación de faltas | Selector: motivo estandarizado + severidad (Leve/Grave/Crítica) |
+| 2.9 | Adjuntos de amonestación | Fotos obligatorias + campo relatoría + testimonios + Firma real del supervisor |
+| 2.10 | Audit Trail completo | Interceptor NestJS: log de cada acción con usuario, IP, timestamp |
+| 2.11 | Vistas mobile-first | Optimización: botones grandes, alto contraste, flujo single-tap |
+
+**Entregable:** Supervisores pueden realizar inspecciones completas y registrar amonestaciones desde el móvil.
+
+---
+
+### FASE 3 — Módulo 5: Dashboard, Reportes y Notificaciones (Semana 9-11)
+> Objetivo: Visibilidad gerencial y automatización de alertas.
+
+| # | Tarea | Detalle |
+|---|---|---|
+| 3.1 | Dashboard analítico Empresarial | Gráficos con Recharts/Nivo: Compliance Rate, amonestaciones por sucursal en gauge/semáforos |
+| 3.2 | Tasas de cumplimiento | Inspecciones OK vs. con observaciones críticas, tendencias en D3.js |
+| 3.3 | Panel alertas calibraciones | Alerta visual de equipos próximos a vencer (30/15/5 días) |
+| 3.4 | Motor de notificaciones email | Nodemailer + plantillas HTML: envío automático ante faltas Graves/Críticas |
+| 3.5 | Alertas programadas | Cron jobs (NestJS `@nestjs/schedule`) para vencimientos de calibración |
+| 3.6 | Generación de PDFs | Puppeteer o PDFKit: reportes semanales ejecutivos automáticos |
+| 3.7 | Exportación de datos | Excel/CSV de inspecciones, amonestaciones, inventario |
+| 3.8 | Vista Jefatura (solo lectura) | Dashboard filtrado por permisos, sin acceso a edición |
+
+**Entregable:** Sistema completo con reportes automatizados y notificaciones proactivas.
+
+---
+
+## 5. Orden de Ejecución Paso a Paso (Fase 0)
+
+Estos son los pasos concretos que ejecutaré para arrancar el proyecto:
+
+### 5.1 Backend
+
+```bash
+# 1. Crear proyecto NestJS
+npx @nestjs/cli new backend --package-manager npm --language ts --strict
+
+# 2. Instalar dependencias core
+cd backend
+npm install @prisma/client bcrypt class-validator class-transformer
+npm install @nestjs/jwt @nestjs/passport passport passport-jwt
+npm install @nestjs/config helmet
+npm install -D prisma @types/bcrypt @types/passport-jwt
+
+# 3. Inicializar Prisma
+npx prisma init --datasource-provider postgresql
+# Configurar DATABASE_URL en .env apuntando a Docker local
+```
+
+### 5.2 Frontend
+
+```bash
+# 1. Crear proyecto Vite + React + TypeScript
+npx create-vite frontend --template react-ts
+
+# 2. Instalar dependencias
+cd frontend
+npm install axios react-router-dom zustand
+npm install -D tailwindcss @tailwindcss/vite
+
+# 3. Instalar shadcn/ui
+npx shadcn@latest init
+```
+
+### 5.3 Variables de Entorno
+
+```env
+# backend/.env
+DATABASE_URL="postgresql://Ramosa:Ramosa3097@localhost:5432/hse_database?schema=public"
+JWT_SECRET="hse-jwt-secret-key-2026"
+JWT_EXPIRATION="24h"
+PORT=3001
+```
+
+```env
+# frontend/.env
+VITE_API_URL="http://localhost:3001/api"
+```
+
+---
+
+## 6. Plan de Verificación
+
+### 6.1 Tests Automatizados
+
+| Nivel | Herramienta | Qué se prueba | Comando |
+|---|---|---|---|
+| Unit (Backend) | Jest (incluido en NestJS) | Services, guards, validadores | `cd backend && npm run test` |
+| E2E (Backend) | Jest + Supertest | Endpoints API completos | `cd backend && npm run test:e2e` |
+| Unit (Frontend) | Vitest | Componentes, hooks, stores | `cd frontend && npm run test` |
+| E2E (Sistema) | Browser subagent | Flujos completos usuario | Via herramienta browser |
+
+### 6.2 Verificación Manual por Fase
+
+**Fase 0:**
+1. Acceder a `http://localhost:5173` → ver pantalla de login
+2. Crear usuario coordinador vía seed → login exitoso → ver layout con sidebar
+3. Intentar acceder a ruta protegida sin token → redirige a login
+4. Verificar que la DB tiene las tablas creadas: `npx prisma studio`
+
+**Fase 1:**
+1. CRUD completo de un trabajador: crear, editar, eliminar, buscar por DNI
+2. Generar QR de un trabajador → escanear con celular → abre perfil 360
+3. Ver semáforo de certificaciones (verde/rojo) en el perfil
+
+**Fase 2:**
+1. Crear inspección → verificar que el checklist se genera según la matriz IPC
+2. Ingresar código de herramienta vencida → confirmar alerta roja
+3. Registrar amonestación en <1 minuto → confirmar datos guardados
+4. Verificar que el AuditLog registra cada operación
+
+**Fase 3:**
+1. Dashboard muestra gráficos con datos reales
+2. Registrar falta "Crítica" → verificar que se envió email (Nodemailer test)
+3. Descargar PDF de reporte semanal → verificar contenido correcto
+
+**IMPORTANT**
+Crear documentacion luego de cada fase

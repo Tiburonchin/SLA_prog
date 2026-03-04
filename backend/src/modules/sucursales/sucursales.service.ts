@@ -1,0 +1,83 @@
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
+import { CrearSucursalDto, ActualizarSucursalDto } from './dto/sucursal.dto';
+
+@Injectable()
+export class SucursalesService {
+  constructor(private prisma: PrismaService) {}
+
+  async obtenerTodas() {
+    return this.prisma.sucursal.findMany({
+      where: { activa: true },
+      orderBy: { nombre: 'asc' },
+      include: {
+        _count: { select: { trabajadores: true } },
+      },
+    });
+  }
+
+  async obtenerPorId(id: string) {
+    const sucursal = await this.prisma.sucursal.findUnique({
+      where: { id },
+      include: {
+        trabajadores: { where: { activo: true }, orderBy: { nombreCompleto: 'asc' } },
+        _count: { select: { trabajadores: true, inspecciones: true, amonestaciones: true } },
+      },
+    });
+
+    if (!sucursal) throw new NotFoundException('Sucursal no encontrada');
+    return sucursal;
+  }
+
+  async crear(dto: CrearSucursalDto) {
+    const existente = await this.prisma.sucursal.findUnique({
+      where: { nombre: dto.nombre },
+    });
+
+    if (existente) {
+      throw new ConflictException('Ya existe una sucursal con este nombre');
+    }
+
+    return this.prisma.sucursal.create({
+      data: dto,
+    });
+  }
+
+  async actualizar(id: string, dto: ActualizarSucursalDto) {
+    const sucursal = await this.prisma.sucursal.findUnique({ where: { id } });
+    if (!sucursal) throw new NotFoundException('Sucursal no encontrada');
+
+    if (dto.nombre && dto.nombre !== sucursal.nombre) {
+      const existente = await this.prisma.sucursal.findUnique({
+        where: { nombre: dto.nombre },
+      });
+      if (existente) throw new ConflictException('Ya existe una sucursal con este nombre');
+    }
+
+    return this.prisma.sucursal.update({
+      where: { id },
+      data: dto,
+    });
+  }
+
+  async desactivar(id: string) {
+    const sucursal = await this.prisma.sucursal.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { trabajadores: { where: { activo: true } } },
+        },
+      },
+    });
+    if (!sucursal) throw new NotFoundException('Sucursal no encontrada');
+
+    if (sucursal._count.trabajadores > 0) {
+      throw new BadRequestException('No se puede desactivar una sucursal con trabajadores activos');
+    }
+
+    return this.prisma.sucursal.update({
+      where: { id },
+      data: { activa: false },
+    });
+  }
+}

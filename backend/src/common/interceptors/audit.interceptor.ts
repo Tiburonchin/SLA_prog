@@ -34,7 +34,7 @@ export class AuditInterceptor implements NestInterceptor {
           }
 
           // Determinar entidad y acción basados en la URL y el método
-          const pathParts = url.split('/').filter(p => p.length > 0);
+          const pathParts = url.split('/').filter((p: string) => p.length > 0);
           const baseEntity = pathParts[1] || 'general'; // /api/entidad/...
           
           let accion = 'UNKNOWN';

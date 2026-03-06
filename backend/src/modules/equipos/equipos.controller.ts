@@ -31,6 +31,11 @@ export class EquiposController {
     return this.equiposService.obtenerPorId(id);
   }
 
+  @Get('nfc/:tagId')
+  async buscarPorNfc(@Param('tagId') tagId: string) {
+    return this.equiposService.obtenerPorNfc(tagId);
+  }
+
   @Post()
   @UseGuards(RolesGuard)
   @Roles('COORDINADOR')

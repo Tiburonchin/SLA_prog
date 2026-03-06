@@ -25,7 +25,7 @@ export class AmonestacionesService {
     };
   }
 
-  async obtenerTodas(filtros: FiltrarAmonestacionesDto & { page?: string; limit?: string }) {
+  async obtenerTodas(filtros: FiltrarAmonestacionesDto) {
     const where: any = {};
     if (filtros.trabajadorId) where.trabajadorId = filtros.trabajadorId;
     if (filtros.supervisorId) where.supervisorId = filtros.supervisorId;

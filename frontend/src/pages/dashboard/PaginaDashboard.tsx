@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Shield, Users, ClipboardCheck, AlertTriangle, Wrench } from 'lucide-react';
 import { trabajadoresService } from '../../services/trabajadores.service';
 import { inspeccionesService } from '../../services/inspecciones.service';
 import { amonestacionesService } from '../../services/amonestaciones.service';
 import api from '../../services/api';
+import AlertaClimatica from '../../components/weather/AlertaClimatica';
 
 interface TarjetaData {
   titulo: string;
@@ -11,14 +13,16 @@ interface TarjetaData {
   icono: any;
   color: string;
   fondo: string;
+  link?: string;
 }
 
 export default function PaginaDashboard() {
+  const navigate = useNavigate();
   const [tarjetas, setTarjetas] = useState<TarjetaData[]>([
-    { titulo: 'Trabajadores Activos', valor: '—', icono: Users, color: 'var(--color-primary-500)', fondo: 'rgba(59, 130, 246, 0.1)' },
-    { titulo: 'Inspecciones del Mes', valor: '—', icono: ClipboardCheck, color: 'var(--color-exito-500)', fondo: 'rgba(34, 197, 94, 0.1)' },
-    { titulo: 'Amonestaciones', valor: '—', icono: AlertTriangle, color: 'var(--color-advertencia-500)', fondo: 'rgba(245, 158, 11, 0.1)' },
-    { titulo: 'Inspecciones Pendientes', valor: '—', icono: Wrench, color: 'var(--color-peligro-500)', fondo: 'rgba(239, 68, 68, 0.1)' },
+    { titulo: 'Trabajadores Activos', valor: '—', icono: Users, color: 'var(--color-primary-500)', fondo: 'rgba(59, 130, 246, 0.1)', link: '/trabajadores' },
+    { titulo: 'Inspecciones del Mes', valor: '—', icono: ClipboardCheck, color: 'var(--color-exito-500)', fondo: 'rgba(34, 197, 94, 0.1)', link: '/inspecciones' },
+    { titulo: 'Amonestaciones', valor: '—', icono: AlertTriangle, color: 'var(--color-advertencia-500)', fondo: 'rgba(245, 158, 11, 0.1)', link: '/trabajadores' },
+    { titulo: 'Inspecciones Pendientes', valor: '—', icono: Wrench, color: 'var(--color-peligro-500)', fondo: 'rgba(239, 68, 68, 0.1)', link: '/inspecciones' },
   ]);
   const [actividadReciente, setActividadReciente] = useState<any[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -33,10 +37,10 @@ export default function PaginaDashboard() {
         ]);
 
         setTarjetas([
-          { titulo: 'Trabajadores Activos', valor: String(trabajadores.total), icono: Users, color: 'var(--color-primary-500)', fondo: 'rgba(59, 130, 246, 0.1)' },
-          { titulo: 'Inspecciones del Mes', valor: String(inspEstats.completadas), icono: ClipboardCheck, color: 'var(--color-exito-500)', fondo: 'rgba(34, 197, 94, 0.1)' },
-          { titulo: 'Amonestaciones', valor: String(amonEstats.total), icono: AlertTriangle, color: 'var(--color-advertencia-500)', fondo: 'rgba(245, 158, 11, 0.1)' },
-          { titulo: 'Insp. En Progreso', valor: String(inspEstats.enProgreso), icono: Wrench, color: 'var(--color-peligro-500)', fondo: 'rgba(239, 68, 68, 0.1)' },
+          { titulo: 'Trabajadores Activos', valor: String(trabajadores.total), icono: Users, color: 'var(--color-primary-500)', fondo: 'rgba(59, 130, 246, 0.1)', link: '/trabajadores' },
+          { titulo: 'Inspecciones del Mes', valor: String(inspEstats.completadas), icono: ClipboardCheck, color: 'var(--color-exito-500)', fondo: 'rgba(34, 197, 94, 0.1)', link: '/inspecciones' },
+          { titulo: 'Amonestaciones', valor: String(amonEstats.total), icono: AlertTriangle, color: 'var(--color-advertencia-500)', fondo: 'rgba(245, 158, 11, 0.1)', link: '/trabajadores' },
+          { titulo: 'Insp. En Progreso', valor: String(inspEstats.enProgreso), icono: Wrench, color: 'var(--color-peligro-500)', fondo: 'rgba(239, 68, 68, 0.1)', link: '/inspecciones' },
         ]);
 
         // Cargar inspecciones recientes
@@ -61,50 +65,38 @@ export default function PaginaDashboard() {
         </p>
       </div>
 
+      <AlertaClimatica />
+
       {/* Tarjetas de resumen */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 py-4">
         {tarjetas.map((tarjeta, i) => (
           <div
             key={tarjeta.titulo}
-            className="rounded-xl p-5 border transition-all duration-200 hover:shadow-lg hover:scale-[1.02] animate-fade-in"
-            style={{
-              backgroundColor: 'var(--color-fondo-card)',
-              borderColor: 'var(--color-borde)',
-              animationDelay: `${i * 80}ms`,
-            }}
+            onClick={() => tarjeta.link && navigate(tarjeta.link)}
+            className={`transition-all duration-200 animate-fade-in flex flex-col justify-center rounded-xl p-4 bg-white/5 border border-transparent ${tarjeta.link ? 'cursor-pointer hover:scale-[1.02] hover:bg-white/10 hover:border-white/10' : ''}`}
+            style={{ animationDelay: `${i * 80}ms` }}
           >
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium" style={{ color: 'var(--color-texto-secundario)' }}>
-                {tarjeta.titulo}
-              </span>
-              <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center"
-                style={{ backgroundColor: tarjeta.fondo }}
-              >
-                <tarjeta.icono className="w-5 h-5" style={{ color: tarjeta.color }} />
+            <div className="flex items-center gap-3 mb-2 text-sm font-medium" style={{ color: 'var(--color-texto-secundario)' }}>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: tarjeta.fondo }}>
+                <tarjeta.icono className="w-4 h-4" style={{ color: tarjeta.color }} />
               </div>
+              {tarjeta.titulo}
             </div>
-            <p className="text-3xl font-bold">
-              {cargando ? (
-                <span className="inline-block w-10 h-8 rounded animate-pulse" style={{ backgroundColor: 'var(--color-fondo-principal)' }} />
-              ) : tarjeta.valor}
+            <p className="text-4xl font-bold">
+              {cargando ? <span className="inline-block w-16 h-10 rounded-lg skeleton-loader" /> : tarjeta.valor}
             </p>
           </div>
         ))}
       </div>
 
       {/* Actividad reciente */}
-      <div
-        className="rounded-xl p-6 border"
-        style={{
-          backgroundColor: 'var(--color-fondo-card)',
-          borderColor: 'var(--color-borde)',
-        }}
-      >
+      <div className="pt-2">
         <h3 className="text-lg font-semibold mb-4">Actividad Reciente</h3>
         {cargando ? (
-          <div className="flex justify-center py-8">
-            <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--color-primary-500)', borderTopColor: 'transparent' }} />
+          <div className="space-y-4 py-2">
+            {[1, 2, 3].map(i => (
+               <div key={i} className="skeleton-loader h-[72px] rounded-lg w-full" />
+            ))}
           </div>
         ) : actividadReciente.length === 0 ? (
           <div

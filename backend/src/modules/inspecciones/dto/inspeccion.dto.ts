@@ -66,6 +66,10 @@ export class CerrarInspeccionDto {
   @IsOptional()
   @IsNumber()
   longitudCierre?: number;
+
+  @IsOptional()
+  @IsString()
+  firmaBase64?: string;
 }
 
 export class ActualizarChecklistDto {

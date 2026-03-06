@@ -11,7 +11,7 @@ export class SucursalesService {
       where: { activa: true },
       orderBy: { nombre: 'asc' },
       include: {
-        _count: { select: { trabajadores: true } },
+        _count: { select: { trabajadores: true, inspecciones: true, amonestaciones: true, supervisores: true } },
       },
     });
   }

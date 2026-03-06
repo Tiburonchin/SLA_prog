@@ -47,6 +47,48 @@ export class CrearTrabajadorDto {
 
   @IsOptional() @IsString()
   tallaGuantes?: string;
+
+  @IsOptional() @IsString()
+  fotoBase64?: string;
+
+  @IsOptional() @IsString()
+  alergias?: string;
+
+  @IsOptional() @IsString()
+  condicionesPreexistentes?: string;
+
+  @IsOptional() @IsString()
+  eps?: string;
+
+  @IsOptional() @IsString()
+  arl?: string;
+
+  @IsOptional() @IsString()
+  fechaUltimoExamen?: string;
+
+  @IsOptional() @IsString()
+  fechaIngreso?: string;
+
+  @IsOptional() @IsString()
+  fechaNacimiento?: string;
+
+  @IsOptional() @IsString()
+  curp?: string;
+
+  @IsOptional() @IsString()
+  nss?: string;
+
+  @IsOptional() @IsString()
+  telefono?: string;
+
+  @IsOptional() @IsString()
+  correo?: string;
+
+  @IsOptional() @IsString()
+  turno?: string;
+
+  @IsOptional() @IsString()
+  nivelEducativo?: string;
 }
 
 export class ActualizarTrabajadorDto {
@@ -85,4 +127,46 @@ export class ActualizarTrabajadorDto {
 
   @IsOptional() @IsString()
   tallaGuantes?: string;
+
+  @IsOptional() @IsString()
+  fotoBase64?: string;
+
+  @IsOptional() @IsString()
+  alergias?: string;
+
+  @IsOptional() @IsString()
+  condicionesPreexistentes?: string;
+
+  @IsOptional() @IsString()
+  eps?: string;
+
+  @IsOptional() @IsString()
+  arl?: string;
+
+  @IsOptional() @IsString()
+  fechaUltimoExamen?: string;
+
+  @IsOptional() @IsString()
+  fechaIngreso?: string;
+
+  @IsOptional() @IsString()
+  fechaNacimiento?: string;
+
+  @IsOptional() @IsString()
+  curp?: string;
+
+  @IsOptional() @IsString()
+  nss?: string;
+
+  @IsOptional() @IsString()
+  telefono?: string;
+
+  @IsOptional() @IsString()
+  correo?: string;
+
+  @IsOptional() @IsString()
+  turno?: string;
+
+  @IsOptional() @IsString()
+  nivelEducativo?: string;
 }

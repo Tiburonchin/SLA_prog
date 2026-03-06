@@ -16,6 +16,8 @@ import { AmonestacionesModule } from './modules/amonestaciones/amonestaciones.mo
 import { InspeccionesModule } from './modules/inspecciones/inspecciones.module';
 import { ReportesModule } from './modules/reportes/reportes.module';
 import { NotificacionesModule } from './modules/notificaciones/notificaciones.module';
+import { SyncModule } from './modules/sync/sync.module';
+import { WeatherModule } from './modules/weather/weather.module';
 
 @Module({
   imports: [
@@ -49,6 +51,8 @@ import { NotificacionesModule } from './modules/notificaciones/notificaciones.mo
     InspeccionesModule,
     ReportesModule,
     NotificacionesModule,
+    SyncModule,
+    WeatherModule,
   ],
   providers: [
     {

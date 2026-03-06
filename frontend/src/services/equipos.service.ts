@@ -6,6 +6,7 @@ export interface Equipo {
   marca?: string;
   modelo?: string;
   numeroSerie: string;
+  nfcTagId?: string;
   estado: 'OPERATIVO' | 'EN_MANTENIMIENTO' | 'BAJA_TECNICA';
   descripcion?: string;
   creadoEn: string;
@@ -34,6 +35,11 @@ export const equiposService = {
 
   async obtenerPorId(id: string): Promise<Equipo> {
     const { data } = await api.get<Equipo>(`/equipos/${id}`);
+    return data;
+  },
+
+  async obtenerPorNfc(tagId: string): Promise<Equipo> {
+    const { data } = await api.get<Equipo>(`/equipos/nfc/${tagId}`);
     return data;
   },
 

@@ -10,9 +10,12 @@ import {
   CheckSquare,
   Square,
   MapPin,
-  Users
+  Users,
+  PenTool
 } from 'lucide-react';
 import { inspeccionesService, type Inspeccion, type ItemChecklist } from '../../services/inspecciones.service';
+import SignatureCanvas from 'react-signature-canvas';
+import { useRef } from 'react';
 
 const ESTADO_CONFIG: Record<string, { label: string; color: string; bg: string; icon: any }> = {
   EN_PROGRESO: { label: 'En Progreso', color: '#3b82f6', bg: 'rgba(59,130,246,0.15)', icon: Clock },
@@ -62,6 +65,10 @@ function DetalleInspeccionContenido() {
   // Estado local para edición del checklist
   const [checklistLocal, setChecklistLocal] = useState<ItemChecklist[]>([]);
   const [observacionesLocal, setObservacionesLocal] = useState('');
+
+  // Firma
+  const sigCanvas = useRef<any>(null);
+  const [modalFirma, setModalFirma] = useState(false);
 
   const cargar = async () => {
     if (!id) return;
@@ -120,14 +127,22 @@ function DetalleInspeccionContenido() {
     // Verificar si todos los ítems están aprobados
     const pendientes = checklistLocal.filter(item => !item.aprobado).length;
     if (pendientes > 0) {
-      const confirmar = window.confirm(`Aún hay ${pendientes} ítems pendientes por aprobar. ¿Deseas cerrar la inspección de todas formas?`);
+      const confirmar = window.confirm(`Aún hay ${pendientes} ítems pendientes por aprobar. ¿Deseas firmar y cerrar la inspección de todas formas?`);
       if (!confirmar) return;
-    } else {
-      const confirmar = window.confirm('¿Estás seguro de cerrar esta inspección? Ya no podrás modificarla.');
-      if (!confirmar) return;
+    }
+    setModalFirma(true);
+  };
+
+  const confirmarCierreConFirma = async () => {
+    if (!id || inspeccion?.estado !== 'EN_PROGRESO') return;
+    if (sigCanvas.current?.isEmpty()) {
+      alert('Por favor, registre su firma para continuar.');
+      return;
     }
 
     setCerrando(true);
+    const firmaBase64 = sigCanvas.current.getTrimmedCanvas().toDataURL('image/png');
+
     try {
       // Intentar obtener geolocalización
       if ('geolocation' in navigator) {
@@ -135,20 +150,24 @@ function DetalleInspeccionContenido() {
           async (position) => {
             await inspeccionesService.cerrar(id, {
               latitudCierre: position.coords.latitude,
-              longitudCierre: position.coords.longitude
+              longitudCierre: position.coords.longitude,
+              firmaBase64
             });
+            setModalFirma(false);
             await cargar();
             setCerrando(false);
           },
           async () => {
             // Si rechaza ubicación, cerrar de todos modos sin coords
-            await inspeccionesService.cerrar(id);
+            await inspeccionesService.cerrar(id, { firmaBase64 });
+            setModalFirma(false);
             await cargar();
             setCerrando(false);
           }
         );
       } else {
-        await inspeccionesService.cerrar(id);
+        await inspeccionesService.cerrar(id, { firmaBase64 });
+        setModalFirma(false);
         await cargar();
         setCerrando(false);
       }
@@ -358,8 +377,63 @@ function DetalleInspeccionContenido() {
               {inspeccion.latitudCierre && `Geolocalización: ${inspeccion.latitudCierre.toFixed(4)}, ${inspeccion.longitudCierre?.toFixed(4)}`}
             </div>
           )}
+
+          {inspeccion.estado === 'COMPLETADA' && inspeccion.firmaBase64 && (
+            <div className="rounded-xl p-6 border text-center" style={{ backgroundColor: 'var(--color-fondo-card)', borderColor: 'var(--color-borde)' }}>
+              <h3 className="font-bold mb-3 text-sm" style={{ color: 'var(--color-texto-secundario)' }}>Firma del Supervisor</h3>
+              <img src={inspeccion.firmaBase64} alt="Firma" className="mx-auto rounded bg-white p-2 border border-gray-200" style={{ maxHeight: '120px' }} />
+              <p className="text-xs mt-2" style={{ color: 'var(--color-texto-tenue)' }}>Signatario validado digitalmente</p>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Modal Firma */}
+      {modalFirma && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md rounded-2xl shadow-2xl p-6 border" style={{ backgroundColor: 'var(--color-fondo-card)', borderColor: 'var(--color-borde)' }}>
+            <h2 className="text-xl font-bold mb-2 flex items-center gap-2">
+              <PenTool className="w-5 h-5 text-blue-500" />
+              Firma Digital Requerida
+            </h2>
+            <p className="text-sm mb-4" style={{ color: 'var(--color-texto-secundario)' }}>
+              Para cerrar la inspección legalmente, por favor firme en el recuadro inferior.
+            </p>
+            
+            <div className="border-2 rounded-xl mb-4 bg-white overflow-hidden" style={{ borderColor: 'var(--color-borde)' }}>
+              <SignatureCanvas
+                ref={sigCanvas}
+                penColor="black"
+                canvasProps={{ className: 'sigCanvas w-full h-48 cursor-crosshair' }}
+              />
+            </div>
+            
+            <div className="flex justify-between items-center mt-2">
+              <button onClick={() => sigCanvas.current?.clear()} className="text-xs text-blue-500 hover:text-blue-400 font-medium">
+                Limpiar Firma
+              </button>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button 
+                onClick={() => setModalFirma(false)}
+                disabled={cerrando}
+                className="px-4 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-white/5 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={confirmarCierreConFirma}
+                disabled={cerrando}
+                className="px-6 py-2.5 rounded-lg text-sm font-bold text-white transition-all shadow-lg hover:brightness-110 disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, var(--color-exito-500), #15803d)' }}
+              >
+                {cerrando ? 'Procesando...' : 'Firmar y Cerrar Inspección'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

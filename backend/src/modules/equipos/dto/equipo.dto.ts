@@ -24,6 +24,9 @@ export class CrearEquipoDto {
 
   @IsOptional() @IsString()
   descripcion?: string;
+
+  @IsOptional() @IsString()
+  nfcTagId?: string;
 }
 
 export class ActualizarEquipoDto {
@@ -41,6 +44,9 @@ export class ActualizarEquipoDto {
 
   @IsOptional() @IsString()
   descripcion?: string;
+
+  @IsOptional() @IsString()
+  nfcTagId?: string;
 }
 
 export class CrearCalibracionDto {

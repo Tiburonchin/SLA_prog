@@ -40,7 +40,7 @@ export default function Sidebar() {
   return (
     <aside
       className={`
-        flex flex-col h-full transition-all duration-300 ease-in-out
+        hidden md:flex flex-col h-full transition-all duration-300 ease-in-out
         ${colapsado ? 'w-[72px]' : 'w-64'}
       `}
       style={{ backgroundColor: 'var(--color-fondo-sidebar)' }}

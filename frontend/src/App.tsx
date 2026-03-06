@@ -18,6 +18,7 @@ import PaginaAmonestaciones from './pages/amonestaciones/PaginaAmonestaciones';
 import PaginaInspecciones from './pages/inspecciones/PaginaInspecciones';
 import PaginaDetalleInspeccion from './pages/inspecciones/PaginaDetalleInspeccion';
 import PaginaReportes from './pages/reportes/PaginaReportes';
+import PaginaEmergencia from './pages/trabajadores/PaginaEmergencia';
 
 export default function App() {
   const { cargarSesion } = useAuthStore();
@@ -43,6 +44,7 @@ export default function App() {
             {/* Trabajadores */}
             <Route path="/trabajadores" element={<PaginaTrabajadores />} />
             <Route path="/trabajadores/:id" element={<PaginaDetalleTrabajador />} />
+            <Route path="/emergencia/:trabajadorId" element={<PaginaEmergencia />} />
 
             {/* Equipos */}
             <Route path="/equipos" element={<PaginaEquipos />} />

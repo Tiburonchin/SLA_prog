@@ -1,0 +1,80 @@
+# 📱 Benchmark UI/UX: Interfaces HSE para Trabajo de Campo
+
+**Fecha:** 2026-03-04 · **Rol:** Analista de Innovación y UX/UI (hse-scout)
+
+---
+
+## 1. Distribución de la Interfaz: ¿Qué hace cada dispositivo?
+
+Las plataformas líderes en HSE (como SafetyCulture/iAuditor o Fluix) no intentan meter todas las funciones en todas las pantallas. Dividen la experiencia estructuralmente según el contexto físico del usuario:
+
+### 💻 Escritorio / Back-Office (Coordinadores y Gerencia)
+
+- **Contexto:** Silla, escritorio, pantalla grande, mouse y teclado, internet estable.
+- **Rol en el Sistema:** **Configuración y Análisis.**
+- **UI Core:** Dashboards complejos con múltiples gráficas (Data Visualization), creadores visuales de plantillas de inspección (Drag & Drop), gestión matricial de usuarios/permisos (Tablas de datos densas con filtros avanzados), y exportación de reportes forenses.
+- **Navegación:** Menús laterales fijos expansibles, múltiples columnas de información, acciones secundarias accesibles vía hover (que no existen en móvil).
+
+### 📱 Smartphone / Trabajo de Campo (Supervisores y Operarios)
+
+- **Contexto:** De pie, en movimiento, bajo el sol, usando guantes, internet intermitente, estrés/ruido. Alto riesgo de caída del dispositivo.
+- **Rol en el Sistema:** **Captura Inmediata y Consumo Rápido.**
+- **UI Core:** Formularios lineales (un solo paso a la vez), botones gigantes, uso de hardware nativo (cámara para evidencia, GPS automático, micrófono para dictado de observaciones).
+- **Navegación:** Barras de navegación inferiores (Bottom Tabs), menús hamburguesa simples. **Cero configuraciones analíticas complejas.**
+
+### 🖥️ Tablet / Puntos de Control (Supervisores de Planta)
+
+- **Contexto:** Uso a dos manos, apoyada sobre maquinaria o arnés de pecho.
+- **Rol en el Sistema:** **Visoreos Detallados y Formularios Extensos.**
+- **UI Core:** Permite ver planos o esquemas P&ID junto al checklist. Pantalla dividida (Split-view): lista de tareas a la izquierda, detalles a la derecha.
+
+---
+
+## 2. Ergonomía Extrema: El Principio del "Thumb Zone"
+
+Para que el sistema sea intuitivo en un teléfono celular, debe diseñarse considerando la anatomía de la mano humana sosteniendo el dispositivo:
+
+1.  **Zona Segura (Verde):** El arco inferior/central de la pantalla donde el pulgar llega naturalmente sin estirar la mano ni cambiar el agarre.
+    - _Qué poner aquí:_ Botones principales ("Guardar", "Tomar Foto", "Siguiente"), Bottom Navigation Bar, y el botón rojo de "Emergencia".
+2.  **Zona de Esfuerzo (Amarilla/Roja):** Las esquinas superiores de la pantalla. Tocar ahí requiere usar dos manos o arriesgarse a soltar el celular.
+    - _Qué poner aquí:_ Perfil, Cerrar sesión, u opciones destructivas/peligrosas ("Eliminar Inspección") para forzar un movimiento consciente y evitar toques accidentales.
+
+**Requisito indispensable para guantes de seguridad:** Todo elemento _clickeable_ (botones, inputs, checkboxes) debe tener un **Área de Toque (Tap Target) mínima de 48x48 píxeles** (aprox. 9mm físicos). En Tailwind v4, esto significa usar utilidades como `min-h-12 min-w-12`.
+
+---
+
+## 3. Mejores Prácticas: "Responsive Design" para Inspecciones HSE
+
+Para complementar el uso de PC con el celular en nuestra aplicación (React/Tailwind), debemos aplicar reglas estrictas de UX para formularios:
+
+### A. Formularios de una sola columna (Single-Column)
+
+Nunca poner dos campos de texto uno al lado del otro en móvil. La vista debe fluir de arriba hacia abajo sin zig-zag visual. El usuario solo debe hacer scroll hacia abajo.
+
+### B. Pre-llenado Automático y Minimización de Tipeo
+
+¡Tipear en campo es el enemigo de la eficiencia!
+
+- **Auto-identificación:** Rellenar nombre del supervisor, fecha y hora actual automáticamente.
+- **Geolocalización:** Obtener la sucursal/ubicación vía GPS (`navigator.geolocation`) en segundo plano.
+- **No usar "Dropdowns" (Selects) para opciones cortas:** Si una pregunta de inspección tiene < 5 opciones (Ej. _Aprobado / Rechazado / N/A_), usar botones grandes tipo "Radio" o "Segmented Controls". Los dropdowns exigen al menos 3 toques musculares; los botones visibles, solo 1.
+
+### C. Alto Contraste para Luz Solar Directa
+
+Las pantallas de los celulares pierden visibilidad bajo el sol. En Tailwind v4:
+
+- Evitar grises claros sobre fondos blancos.
+- Asegurar un ratio de contraste de al menos **4.5:1** (Nivel AA de la WCAG).
+- En el _Dark Mode_ que tiene nuestro sistema, asegurarse que los textos no se difuminen. Los textos principales deben ser casi blancos brillantes (`#f1f5f9`), no plateados oscuros.
+
+### D. Degradación Elegante (Skeleton Loaders)
+
+Cuando se pierde la conexión o está lenta, la pantalla no debe quedar en blanco. Usar estructuras de carga (Skeletons) con animaciones pulsantes, seguidas de notificaciones Toast claras: _"Guardado offline. Se sincronizará al recuperar señal"_.
+
+---
+
+## Recomendaciones para los Desarrolladores (`@hse-ui`)
+
+1.  **Refactorizar los "Inputs":** Mover los _labels_ arriba de las cajas de texto (no a los lados). Quitar `px-3 py-1` y reemplazarlos por `px-4 py-3 min-h-[48px]`.
+2.  **Dashboard Adaptativo:** En escritorio mostrar las 4 tarjetas de KPIs en fila (`grid-cols-4`). En móvil, mostrar listas apiladas ocultando los gráficos complejos (`grid-cols-1`) usando utilidades como `hidden md:block`.
+3.  **Bottom Navigation en Móvil:** Ocultar el Sidebar (`aside`) en pantallas pequeñas y mostrar una barra de navegación tipo app nativa fija en la parte inferior de la pantalla (`fixed bottom-0 w-full`) con 4 accesos directos críticos: Inicio, Escanear QR, Nueva Inspección, Alertas.

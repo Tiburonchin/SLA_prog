@@ -170,7 +170,8 @@ export class InspeccionesService {
       where: { id },
       data: {
         estado: 'COMPLETADA',
-        firmaSupervisor: true,
+        firmaSupervisor: !!dto.firmaBase64 || true, // backwards compat if not provided
+        firmaBase64: dto.firmaBase64,
         latitudCierre: dto.latitudCierre,
         longitudCierre: dto.longitudCierre,
         fechaCierre: new Date(),

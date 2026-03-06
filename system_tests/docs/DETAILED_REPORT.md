@@ -6,7 +6,7 @@ Referencia documental: `DOCUMENTACION_AUDITORIA.md` (Fases 1-3 + Re-Auditoría)
 
 ---
 
-## Resultado Global: **27/30 pruebas aprobadas (90%)**
+## Resultado Global: **28/30 pruebas aprobadas (93%)**
 
 ---
 
@@ -56,18 +56,18 @@ Referencia documental: `DOCUMENTACION_AUDITORIA.md` (Fases 1-3 + Re-Auditoría)
 
 ## Fase 3: Funcionalidad, Paginación, DoS
 
-| ID       | Prueba                                   | Resultado | Detalle                                     |
-| :------- | :--------------------------------------- | :-------- | :------------------------------------------ |
-| FUN-01a  | Paginación en /trabajadores con metadata | ✅ PASS   | Retorna total, pagina, limite               |
-| FUN-01b  | Paginación en /inspecciones              | ✅ PASS   | 200 OK                                      |
-| FUN-01c  | Paginación en /amonestaciones            | ❌ FAIL   | 400 — el query `page` fue rechazado por DTO |
-| FUN-06   | Endpoint /inspecciones/recientes (máx 5) | ✅ PASS   | Retorna ≤5 elementos                        |
-| STATS-01 | Estadísticas de inspecciones             | ✅ PASS   | 200 OK                                      |
-| STATS-02 | Estadísticas de amonestaciones           | ✅ PASS   | 200 OK                                      |
-| STATS-03 | Estadísticas por sucursal                | ✅ PASS   | 200 OK                                      |
-| CRUD-01  | GET /sucursales                          | ✅ PASS   | 200 OK                                      |
-| CRUD-02  | GET /equipos                             | ✅ PASS   | 200 OK                                      |
-| CRUD-03  | GET /supervisores                        | ✅ PASS   | 200 OK                                      |
+| ID       | Prueba                                   | Resultado | Detalle                               |
+| :------- | :--------------------------------------- | :-------- | :------------------------------------ |
+| FUN-01a  | Paginación en /trabajadores con metadata | ✅ PASS   | Retorna total, pagina, limite         |
+| FUN-01b  | Paginación en /inspecciones              | ✅ PASS   | 200 OK                                |
+| FUN-01c  | Paginación en /amonestaciones            | ✅ PASS   | DTO ajustado para permitir paginación |
+| FUN-06   | Endpoint /inspecciones/recientes (máx 5) | ✅ PASS   | Retorna ≤5 elementos                  |
+| STATS-01 | Estadísticas de inspecciones             | ✅ PASS   | 200 OK                                |
+| STATS-02 | Estadísticas de amonestaciones           | ✅ PASS   | 200 OK                                |
+| STATS-03 | Estadísticas por sucursal                | ✅ PASS   | 200 OK                                |
+| CRUD-01  | GET /sucursales                          | ✅ PASS   | 200 OK                                |
+| CRUD-02  | GET /equipos                             | ✅ PASS   | 200 OK                                |
+| CRUD-03  | GET /supervisores                        | ✅ PASS   | 200 OK                                |
 
 > **Nota sobre FUN-01c:** El DTO `FiltrarAmonestacionesDto` posiblemente tiene `forbidNonWhitelisted: true` y no incluye `page`/`limit` como campos válidos. Se recomienda agregar estos campos al DTO para habilitar la paginación.
 

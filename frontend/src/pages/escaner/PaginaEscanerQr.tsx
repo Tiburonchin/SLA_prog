@@ -8,6 +8,7 @@ export default function PaginaEscanerQr() {
   const navigate = useNavigate();
   const [procesando, setProcesando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [modoEmergencia, setModoEmergencia] = useState(false);
 
   useEffect(() => {
     // Configuración del escáner
@@ -35,7 +36,12 @@ export default function PaginaEscanerQr() {
         
         // Si es válido, desmontamos y redirigimos
         scanner.clear();
-        navigate(`/trabajadores/${resultado.id}`);
+        
+        if (modoEmergencia) {
+          navigate(`/emergencia/${resultado.id}`);
+        } else {
+          navigate(`/trabajadores/${resultado.id}`);
+        }
       } catch (err: any) {
         // Si hay error (ej: QR no válido), mostramos error y reanudamos en 3 segundos
         setError(err.response?.data?.message || 'Código QR no reconocido o inválido');
@@ -58,17 +64,32 @@ export default function PaginaEscanerQr() {
     return () => {
       scanner.clear().catch(console.error);
     };
-  }, [navigate, procesando]);
+  }, [navigate, procesando, modoEmergencia]);
 
   return (
     <div className="max-w-md mx-auto py-10 animate-fade-in">
       <div className="text-center mb-6">
-        <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-500">
-          <ScanLine className="w-8 h-8" />
+        <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 transition-colors ${modoEmergencia ? 'bg-red-500/20 text-red-500' : 'bg-blue-500/10 text-blue-500'}`}>
+          {modoEmergencia ? <AlertCircle className="w-8 h-8 animate-pulse" /> : <ScanLine className="w-8 h-8" />}
         </div>
         <h1 className="text-2xl font-bold mb-2">Escáner de Auditoría</h1>
+        
+        <button 
+          onClick={() => setModoEmergencia(!modoEmergencia)}
+          className={`mt-2 mb-4 px-6 py-3 rounded-xl font-bold text-sm w-full transition-all active:scale-95 flex items-center justify-center gap-2 border-2 ${
+            modoEmergencia 
+              ? 'bg-red-600 text-white border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.5)] animate-pulse' 
+              : 'bg-transparent text-red-500 border-red-500 hover:bg-red-500/10'
+          }`}
+        >
+          <AlertCircle className="w-5 h-5" />
+          {modoEmergencia ? 'MODO EMERGENCIA ACTIVADO' : 'ACTIVAR MODO EMERGENCIA'}
+        </button>
+
         <p className="text-sm" style={{ color: 'var(--color-texto-secundario)' }}>
-          Apunta la cámara al código QR del empleado para abrir su Perfil 360° y verificar acreditaciones.
+          {modoEmergencia 
+            ? 'Apunta al código QR para acceder rápidamente a la ficha médica.'
+            : 'Apunta la cámara al código QR del empleado para abrir su Perfil 360°.'}
         </p>
       </div>
 

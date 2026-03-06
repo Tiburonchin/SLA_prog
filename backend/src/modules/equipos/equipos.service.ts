@@ -48,6 +48,19 @@ export class EquiposService {
     return equipo;
   }
 
+  // Buscar equipo por tag NFC
+  async obtenerPorNfc(nfcTagId: string) {
+    const equipo = await this.prisma.equipo.findUnique({
+      where: { nfcTagId },
+      include: {
+        calibraciones: { orderBy: { fechaCalibracion: 'desc' } },
+      },
+    });
+
+    if (!equipo) throw new NotFoundException('Equipo no encontrado o Tag NFC no registrado');
+    return equipo;
+  }
+
   // Crear equipo
   async crear(dto: CrearEquipoDto) {
     const existente = await this.prisma.equipo.findUnique({ where: { numeroSerie: dto.numeroSerie } });

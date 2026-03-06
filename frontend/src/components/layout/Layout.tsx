@@ -1,6 +1,7 @@
 import { Outlet, Navigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth.store';
 import Sidebar from './Sidebar';
+import BottomNav from './BottomNav';
 
 export default function Layout() {
   const { usuario } = useAuthStore();
@@ -11,14 +12,19 @@ export default function Layout() {
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: 'var(--color-fondo-principal)' }}>
+      {/* Skip Navigation Link (WCAG) */}
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-white focus:text-black focus:rounded-lg focus:font-bold">
+        Saltar al contenido principal
+      </a>
+
       {/* Sidebar */}
       <Sidebar />
 
       {/* Contenido principal */}
-      <main className="flex-1 overflow-y-auto">
+      <main id="main-content" role="main" tabIndex={-1} className="flex-1 overflow-y-auto">
         {/* Header */}
         <header
-          className="sticky top-0 z-10 h-16 flex items-center justify-between px-8 border-b backdrop-blur-md"
+          className="sticky top-0 z-10 h-16 flex items-center justify-between px-4 md:px-8 border-b backdrop-blur-md"
           style={{
             borderColor: 'var(--color-borde)',
             backgroundColor: 'rgba(15, 23, 42, 0.8)',
@@ -36,10 +42,13 @@ export default function Layout() {
         </header>
 
         {/* Contenido de cada página */}
-        <div className="p-8 animate-fade-in">
+        <div className="p-4 md:p-8 pb-20 md:pb-8 flex-1 w-full animate-fade-in">
           <Outlet />
         </div>
       </main>
+
+      {/* Navegación Móvil */}
+      <BottomNav />
     </div>
   );
 }

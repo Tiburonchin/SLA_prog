@@ -43,6 +43,12 @@ export class TrabajadoresController {
     return this.trabajadoresService.obtenerPorQr(token);
   }
 
+  // GET /api/trabajadores/:id/emergencia — Datos Médicos
+  @Get(':id/emergencia')
+  async obtenerEmergencia(@Param('id', ParseUUIDPipe) id: string) {
+    return this.trabajadoresService.obtenerEmergencia(id);
+  }
+
   // GET /api/trabajadores/:id — Perfil 360°
   @Get(':id')
   async obtenerPorId(@Param('id', ParseUUIDPipe) id: string) {

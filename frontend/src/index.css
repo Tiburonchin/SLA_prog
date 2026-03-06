@@ -121,3 +121,74 @@ body {
 .animate-slide-in {
   animation: slideIn 0.25s ease-out forwards;
 }
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .5; }
+}
+
+.skeleton-loader {
+  animation: skeletonPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  background-color: var(--color-borde);
+  border-radius: 0.5rem;
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(100%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideOutRight {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(100%); }
+}
+
+.animate-slide-right {
+  animation: slideInRight 0.3s ease-out forwards;
+}
+
+@keyframes expandDown {
+  from { opacity: 0; max-height: 0; }
+  to   { opacity: 1; max-height: 600px; }
+}
+
+.animate-expand {
+  animation: expandDown 0.35s ease-out forwards;
+  overflow: hidden;
+}
+
+@layer base {
+  @media (prefers-contrast: more) {
+    :root {
+      --color-fondo-principal: #ffffff;
+      --color-fondo-card: #f8fafc;
+      --color-fondo-sidebar: #f1f5f9;
+      --color-fondo-input: #ffffff;
+      --color-texto-principal: #000000;
+      --color-texto-secundario: #1e293b;
+      --color-texto-tenue: #334155;
+      --color-borde: #000000;
+      --color-borde-claro: #000000;
+    }
+  }
+
+  *:focus-visible {
+    outline: 2px solid var(--color-primary-500);
+    outline-offset: 2px;
+  }
+
+  /* Tap targets WCAG 2.5.8 */
+  button, 
+  [role="button"],
+  select,
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea {
+    min-height: 3rem; /* 48px */
+    min-width: 3rem;  /* 48px */
+  }
+}

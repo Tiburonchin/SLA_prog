@@ -27,10 +27,11 @@ system_tests/
 
 ## Historial de Ejecuciones
 
-| #   | Fecha      | Hora (CST) | Tests | ✅  | ❌  | %     | Ruta del Reporte                        | Notas                                                                 |
-| :-- | :--------- | :--------- | :---- | :-- | :-- | :---- | :-------------------------------------- | :-------------------------------------------------------------------- |
-| 001 | 2026-03-03 | 22:50      | 30    | 27  | 3   | 90.0% | `reports/2026-03-03/reporte_22-50.json` | Ejecución inicial. 3 falsos positivos (SEC-02d, INJ-04, FUN-01c).     |
-| 002 | 2026-03-04 | 05:00      | 30    | 27  | 3   | 90.0% | `reports/2026-03-04/reporte_05-00.json` | Ejecución autónoma validando auto-ordenamiento de carpetas por fecha. |
+| #   | Fecha      | Hora (CST) | Tests | ✅  | ❌  | %     | Ruta del Reporte                        | Notas                                                                                                                                                                                       |
+| :-- | :--------- | :--------- | :---- | :-- | :-- | :---- | :-------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 001 | 2026-03-03 | 22:50      | 30    | 27  | 3   | 90.0% | `reports/2026-03-03/reporte_22-50.json` | Ejecución inicial. 3 falsos positivos (SEC-02d, INJ-04, FUN-01c).                                                                                                                           |
+| 002 | 2026-03-04 | 05:00      | 30    | 27  | 3   | 90.0% | `reports/2026-03-04/reporte_05-00.json` | Ejecución autónoma validando auto-ordenamiento de carpetas por fecha.                                                                                                                       |
+| 003 | 2026-03-04 | 15:17      | —     | —   | —   | —     | Auditoría manual de código              | **Parches aplicados:** 4 `onDelete` en `schema.prisma` (Restrict). FUN-01c resuelto: `page`/`limit` agregados a `FiltrarAmonestacionesDto`. RBAC verificado en 10 controllers: sin brechas. |
 
 ---
 

@@ -15,6 +15,20 @@ export interface Trabajador {
   tallaCalzado?: string;
   tallaGuantes?: string;
   codigoQr?: string;
+  fotoUrl?: string;
+  alergias?: string;
+  condicionesPreexistentes?: string;
+  eps?: string;
+  arl?: string;
+  fechaUltimoExamen?: string;
+  fechaIngreso?: string;
+  fechaNacimiento?: string;
+  curp?: string;
+  nss?: string;
+  telefono?: string;
+  correo?: string;
+  turno?: string;
+  nivelEducativo?: string;
   sucursalId: string;
   activo: boolean;
   creadoEn: string;
@@ -22,6 +36,13 @@ export interface Trabajador {
   entregasEpp?: any[];
   capacitaciones?: any[];
   amonestaciones?: any[];
+  inspecciones?: any[];
+  _count?: {
+    entregasEpp: number;
+    capacitaciones: number;
+    amonestaciones: number;
+    inspecciones: number;
+  };
 }
 
 export interface Sucursal {
@@ -31,7 +52,12 @@ export interface Sucursal {
   latitud?: number;
   longitud?: number;
   activa: boolean;
-  _count?: { trabajadores: number };
+  _count?: {
+    trabajadores: number;
+    inspecciones: number;
+    amonestaciones: number;
+    supervisores: number;
+  };
 }
 
 export interface CrearSucursalData {
@@ -55,6 +81,20 @@ export interface CrearTrabajadorData {
   tallaPantalon?: string;
   tallaCalzado?: string;
   tallaGuantes?: string;
+  fotoBase64?: string;
+  alergias?: string;
+  condicionesPreexistentes?: string;
+  eps?: string;
+  arl?: string;
+  fechaUltimoExamen?: string;
+  fechaIngreso?: string;
+  fechaNacimiento?: string;
+  curp?: string;
+  nss?: string;
+  telefono?: string;
+  correo?: string;
+  turno?: string;
+  nivelEducativo?: string;
 }
 
 export interface PaginacionRespuesta<T> {
@@ -81,6 +121,11 @@ export const trabajadoresService = {
 
   async buscarPorQr(token: string): Promise<{ id: string }> {
     const { data } = await api.get<{id: string}>(`/trabajadores/qr/${token}`);
+    return data;
+  },
+
+  async obtenerEmergencia(id: string): Promise<any> {
+    const { data } = await api.get(`/trabajadores/${id}/emergencia`);
     return data;
   },
 

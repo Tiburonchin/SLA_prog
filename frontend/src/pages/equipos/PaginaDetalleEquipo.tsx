@@ -3,8 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { equiposService, type Equipo } from '../../services/equipos.service';
 import {
   ArrowLeft, Wrench, CheckCircle, Pause, AlertTriangle,
-  Plus, Calendar, FileText, Edit3, Save, X, Trash2
+  Plus, Calendar, FileText, Edit3, Save, X, Trash2, Wifi
 } from 'lucide-react';
+import { useNfcReader } from '../../hooks/useNfcReader';
 
 const ESTADO: Record<string, { label: string; color: string; bg: string }> = {
   OPERATIVO: { label: 'Operativo', color: 'var(--color-exito-500)', bg: 'rgba(34,197,94,0.15)' },
@@ -25,6 +26,9 @@ export default function PaginaDetalleEquipo() {
   const [editando, setEditando] = useState(false);
   const [formEdit, setFormEdit] = useState<Partial<Equipo>>({});
   const [desactivando, setDesactivando] = useState(false);
+
+  const { leerNfc, leyendo, cancelarLectura, error: nfcError, soportado } = useNfcReader();
+  const [modalNfc, setModalNfc] = useState(false);
 
   const cargar = () => {
     if (!id) return;
@@ -83,6 +87,23 @@ export default function PaginaDetalleEquipo() {
     finally { setDesactivando(false); }
   };
 
+  const vincularNfc = async () => {
+    if (!id || !soportado) return;
+    setModalNfc(true);
+    const tag = await leerNfc();
+    if (tag) {
+      try {
+        await equiposService.actualizar(id, { nfcTagId: tag });
+        setModalNfc(false);
+        alert('Etiqueta NFC vinculada correctamente.');
+        cargar();
+      } catch (err: any) {
+        alert(err.response?.data?.message || 'Error al vincular etiqueta NFC.');
+        setModalNfc(false);
+      }
+    }
+  };
+
   if (cargando) return (
     <div className="flex justify-center py-24">
       <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--color-primary-500)', borderTopColor: 'transparent' }} />
@@ -112,15 +133,23 @@ export default function PaginaDetalleEquipo() {
           ) : (
             <p className="text-sm" style={{ color: 'var(--color-texto-secundario)' }}>
               Serie: {equipo.numeroSerie} {equipo.marca && `• ${equipo.marca}`} {equipo.modelo && equipo.modelo}
+              {equipo.nfcTagId && <span className="ml-3 text-blue-400 text-xs font-mono bg-blue-400/10 px-2 py-0.5 rounded border border-blue-400/20"><Wifi className="w-3 h-3 inline mr-1" />{equipo.nfcTagId}</span>}
             </p>
           )}
         </div>
         
         <div className="ml-auto flex items-center gap-3">
            {!editando && equipo.estado !== 'BAJA_TECNICA' ? (
-             <button onClick={() => setEditando(true)} className="p-2 bg-black/20 rounded hover:bg-black/40 text-gray-400 hover:text-white transition">
-               <Edit3 className="w-4 h-4" />
-             </button>
+             <>
+               {soportado && (
+                 <button onClick={vincularNfc} className="p-2 bg-blue-500/20 rounded hover:bg-blue-500/40 text-blue-400 hover:text-white transition" title="Vincular Etiqueta NFC">
+                   <Wifi className="w-4 h-4" />
+                 </button>
+               )}
+               <button onClick={() => setEditando(true)} className="p-2 bg-black/20 rounded hover:bg-black/40 text-gray-400 hover:text-white transition" title="Editar Equipo">
+                 <Edit3 className="w-4 h-4" />
+               </button>
+             </>
            ) : editando && (
              <>
                <button onClick={guardarCambios} disabled={guardando} className="p-2 bg-green-500/20 text-green-500 rounded hover:bg-green-500/40 transition">
@@ -271,6 +300,20 @@ export default function PaginaDetalleEquipo() {
           </button>
         )}
       </div>
+
+      {modalNfc && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md p-6 text-center animate-fade-in">
+          <Wifi className={`w-24 h-24 mb-6 ${leyendo ? 'text-blue-500 animate-ping' : 'text-gray-500'}`} />
+          <h2 className="text-2xl font-black text-white mb-2">Vincular Etiqueta NFC</h2>
+          <p className="text-lg text-gray-300 mb-8 max-w-sm">
+            {nfcError || `Acerque su teléfono al Tag NFC para vincularlo al equipo "${equipo.nombre}".`}
+          </p>
+          <button onClick={() => { cancelarLectura(); setModalNfc(false); }}
+            className="px-8 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold uppercase tracking-wider transition">
+            Cancelar / Volver
+          </button>
+        </div>
+      )}
     </div>
   );
 }

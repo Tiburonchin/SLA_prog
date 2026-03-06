@@ -1,31 +1,30 @@
-# Documentación Fase 2: Inspecciones y Amonestaciones
+# Documento Fundacional: Fase 2 (UI/UX Frontend)
 
-## 1. Descripción General
+**Proyecto:** Sistema Web de Gestión de Seguridad Laboral (HSE)
+**Rol:** Custodio Ágil del Producto
+**Estado:** Activa
 
-La **Fase 2** empodera la acción en terreno e in-situ al entregar el **Módulo de Inspecciones** (Módulo 3) y el **Módulo de Amonestaciones/Actos Inseguros** (Módulo 4). Introduce un control sofisticado con alta vinculación de datos, soporte de prevención (IDOR) y trazabilidad completa de checklists.
+## 1. Visión Central y Propósito de la Fase 2
 
-## 2. Módulo de Inspecciones (Trabajos Seguros)
+En estricto apego a la **Visión Central del Producto**, la Fase 2 tiene como objetivo materializar la herramienta principal para la operación diaria del Supervisor en campo. Esta fase construye un frontend extremadamente rápido, hiper-optimizado para dispositivos móviles y altamente resiliente ante la falta de conectividad (minas, sótanos). El propósito es asegurar que la labor de prevención (auditorías, amonestaciones) nunca se detenga y lograr un "cero papel" efectivo.
 
-- **Checklist Dinámico:** Basado en la Matriz IPC. Cuando un usuario especifica un _Tipo de Trabajo_ y _Ubicación_, el backend compila dinámicamente un cuestionario (`crearPreguntasDeMatriz()`) integrando Herramientas, EPP, Requisitos o Peligros en un formato de JSON escalable (`datosChecklist: Prisma.JsonValue`).
-- **Regulación y Modificaciones:** El estado avanza por un flujo (EN_PROGRESO → COMPLETADA). Solo inspecciones "En progreso" pueden modificarse.
-- **Prevención de Vulnerabilidades (IDOR & Validación Cruzada):**
-  - Validación estricta que impide que un supervisor cree, edite checklists o cierre una inspección a nombre de otro usuario, verificando rigurosamente que su `usuario.id` coincida con el originador real, cortando de raíz posibles vulnerabilidades Insecure Direct Object Reference (SEC-06 IDOR).
-  - Backend comprueba y restringe a nivel de base de datos que todos los trabajadores asignados a la inspección efectivamente operen en la _Sucursal_ seleccionada (Cross-Validation).
-- **Firmas y Trazabilidad:** _(Plataforma escalada)_ Arquitectura preparada para aceptar coordenadas Geo-referenciadas y recolección de firmas al momento de ejecutar `/api/inspecciones/:id/cerrar`.
+## 2. Arquitectura del Frontend y Tech Stack
 
-## 3. Módulo de Amonestaciones (Discrecional o Sistémico)
+Para cumplir con los objetivos operativos, el frontend se diseña como una **Single Page Application (SPA)** con capacidades **Progressive Web App (PWA)**:
 
-- **Altas Rápidas:** Interfaz de usuario "mobile-first" diseñada en el frontend para ingreso expedito de incidentes.
-- **Severidad y Motivo estandarizado:** Formulario encausado con `Leve`, `Grave` o `Critica`, uniendo evidencia (Fotos y testimonios).
-- **Filtros e Indexación:** Listados completos accesibles en la administración.
-- **Control Lógico Estricto:** Al igual que en Inspecciones, se ejerce control cruzado. Backend se reasegura de que el supervisor autenticado pre-emisor esté _autorizado a fungir en la sucursal implicada en el evento_, impidiendo faltas cruzadas fuera de jurisdicción o suplantaciones IDOR.
+- **React.js con TypeScript:** Pieza central para crear interfaces dinámicas. Es indispensable para renderizar los checklists operacionales condicionales en base a las API expuestas por NestJS. TypeScript otorga seguridad en la compilación.
+- **Vite.js:** Herramienta de construcción (bundler) ultrarrápida, crucial para una experiencia de desarrollo local ágil.
+- **Tailwind CSS v4 (Mobile-First Extremo):** Framework de utilidades fundamental para el diseño. Garantiza reglas de alto contraste bajo luz solar (vital en campo) y facilita crear interfaces limpias de un solo toque (single-tap) con botones accesibles para el uso de guantes protectores.
+- **Componentes UI (shadcn/ui o Material UI):** Sistema de componentes modulares previamente probados y accesibles para agilizar la entrega gráfica.
 
-## 4. Dashboard Gerencial Operativo Dinámico
+## 3. Resiliencia Offline y Trabajo en Terreno
 
-- Se modificó profundamente la pantalla base (`PaginaDashboard`) para destituir la información "hard-coded".
-- Reemplazo por integraciones en tiempo real: Se ejecutan solicitudes API directas (promesas resueltas de manera optimizada) que listan y alimentan las tarjetas del UI con datos vivos extraídos del backend.
-- **Recent Activity Feed:** Despliega una línea de tiempo a la derecha mostrando las últimas intervenciones de amonestaciones, inspecciones y estados de manera visual y clara.
+La inspección HSE en zonas remotas impone condiciones severas sobre la aplicación:
 
-## 5. Evolución del Rendimiento
+- **Zustand:** Gestor de estado global y liviano. Provee una fuente de la verdad para el progreso de la inspección actual sin recargar la memoria del dispositivo móvil.
+- **Workbox (PWA) e IndexedDB:** Implementación de Service Workers para cachear recursos estáticos y data de configuración (matrices IPC). Los datos de inspecciones y amonestaciones generados sin señal 4G/Wifi persistirán en la IndexedDB local hasta recuperar conexión, subiendo en segundo plano transparentemente al backend.
+- **html5-qrcode (Expediente 360°):** Capacidad del dispositivo móvil (tablet/smartphone) para leer códigos QR de credenciales de operarios, evitando captura manual e identificando instantáneamente al trabajador.
 
-Se introdujo paralelismo transaccional. La obtención de trabajadores y amonestaciones fue convertida a arquitecturas que responden **Paginado**, con conteos `Promise.all` acoplados, incrementando el performance enormemente a volúmenes masivos. Se prepara la arquitectura del frontend (`PWA / offline-first sync` - Fase Futura).
+## 4. Trazabilidad de Cambios (Changelog)
+
+- **[Marzo 2026] - Version 1.0.1:** Actualización integral del documento fundacional de la Fase 2. Se ratifica la alineación estricta con Tailwind CSS v4 para diseño Mobile-First y la arquitectura offline PWA con React/Zustand para uso pesado en campo, consolidando la modernización tecnológica y prohibiendo explícitamente soluciones de escritorio para supervisores.

@@ -1,42 +1,31 @@
-# Documentación Fase 0: Fundación del Sistema HSE
+# Documento Fundacional: Fase 0 (Base de Datos y Setup)
 
-## 1. Descripción General
+**Proyecto:** Sistema Web de Gestión de Seguridad Laboral (HSE)
+**Rol:** Custodio Ágil del Producto
+**Estado:** Activa
 
-La **Fase 0** constituye la arquitectura base y los cimientos tecnológicos del Sistema Integrado de Gestión HSE (Health, Safety, and Environment). En esta etapa se construyó la infraestructura de backend y frontend, se diseñó la base de datos maestra y se implementaron las políticas elementales de seguridad, autenticación y diseño.
+## 1. Visión Central y Propósito de la Fase 0
 
-## 2. Stack Tecnológico Base
+En estricto apego a la **Visión Central del Producto**, la Fase 0 establece los cimientos infraestructurales y de datos para el sistema. Su objetivo es reemplazar los archivos físicos y hojas de cálculo desconectadas por una base de datos centralizada, relacional y altamente disponible. La premisa "cero papel" comienza aquí, garantizando que el expediente 360° de los trabajadores sea inmutable, seguro y auditable.
 
-- **Backend:** [NestJS](https://nestjs.com/) (Node.js) con TypeScript.
-- **Frontend:** [React](https://reactjs.org/) + [Vite](https://vitejs.dev/) con TypeScript.
-- **Base de Datos:** [PostgreSQL 15](https://www.postgresql.org/) desplegado mediante Docker.
-- **ORM:** [Prisma](https://www.prisma.io/).
-- **Estilos (Estética Premium):** [TailwindCSS](https://tailwindcss.com/) + Shadcn/UI, con soporte a temas oscuros, animaciones micro (glassmorphism y transiciones fluidas) y diseño responsive.
+## 2. Arquitectura de Almacenamiento y Setup
 
-## 3. Arquitectura y Configuración
+Para cumplir con la necesidad de datos dinámicos (Checklists condicionales) y la alta integridad referencial, se define el siguiente stack:
 
-- **Monorepo Lógico:** El código está organizado claramente entre `frontend/` y `backend/`.
-- **Despliegue Local Dockerizado:** Creación del archivo `docker-compose.yml` para levantar rápida y consistentemente la base de datos.
-- **Variables de Entorno:** Configuración global a través de `ConfigModule` de NestJS (para leer archivo `.env`).
-- **Conexión Frontend ↔ Backend:** Cliente de la API configurado a través de **Axios**, incluyendo interceptores `request`/`response` para inyectar y procesar tokens JWT automáticamente, centralizando el manejo de errores y códigos HTTP (401, 403, etc.).
+- **PostgreSQL:** Motor de base de datos relacional principal. Su soporte nativo para campos `JSONB` es crítico para almacenar los formularios dinámicos y matrices IPC sin perder rendimiento, permitiendo que las inspecciones de campo se adapten a cualquier escenario.
+- **Prisma ORM:** Herramienta de mapeo objeto-relacional (ORM) utilizada en conjunto con Node.js/TypeScript. Prisma garantiza un esquema fuertemente tipado desde la base de datos hasta el cliente, reduciendo errores y facilitando migraciones seguras.
+- **Docker Desktop:** El entorno de desarrollo local ("Local-First") se orquesta con Docker y un archivo `docker-compose.yml`, asegurando que todos los desarrolladores tengan réplicas exactas del entorno de producción y bases de datos aisladas para pruebas.
 
-## 4. Módulo de Autenticación y Autorización (Security-First)
+## 3. Entidades Core (Modelado Inicial)
 
-La seguridad es el pilar de la plataforma:
+El esquema de Prisma debe contemplar al menos las siguientes entidades innegociables para el negocio:
 
-- **JWT (JSON Web Tokens):** Implementado con `@nestjs/jwt` y Passport. Las contraseñas se encriptan con `bcrypt`.
-- **RBAC (Role-Based Access Control):**
-  - Sistema de `RolesGuard` en el backend para validar a través del decorador `@Roles()` el nivel de acceso al endpoint (`SUPERVISOR`, `COORDINADOR`, `JEFATURA`).
-  - En el frontend, componente `RutaProtegida` para segmentar el acceso visual a las pantallas según el rol logueado.
-- **Rate Limiting:** Global a través del `ThrottlerModule` (límite por defecto de 20 peticiones por minuto, 60000 ms TTL), configurado para mitigar ataques DDoS o fuerza bruta.
+- `Trabajador`: Perfil detallado (DNI, aptitud médica, certificaciones).
+- `Usuario` (Supervisores/Administradores): Gestión de accesos y roles (RBAC).
+- `Equipo/Herramienta`: Registro de calibraciones y estados (Operativo/Baja).
+- `Ubicacion/Sucursal`: Contexto geográfico para la matriz IPC.
+- `Inspeccion`: Contenedor principal de los checklists, ligado al Supervisor y la Ubicación.
 
-## 5. Diseño y Layout Inicial
+## 4. Trazabilidad de Cambios (Changelog)
 
-- **Sidebar Navegacional:** Componente colapsable e interactivo (lucide-react icons) con filtrado dinámico de ítems operado por el componente lógico basado en credenciales (ej. `JEFATURA` solo visualiza reportes y dashboard).
-- **Top Navbar:** Provee navegación superior contextual, estado de sesión y menús de acceso rápido.
-- **UX/UI Moderno:** Configuración del `index.css` definiendo variables globales para un alto contraste, bordes radiados y legibilidad (font-family como Inter u Outfit).
-
-## 6. Verificación de Fase
-
-- Base de datos levantada con `docker compose up -d`.
-- Migraciones iniciales (`npm run prisma:migrate`) ejecutadas con éxito en el esquema `hse_database`.
-- Rutas de login del backend (`POST /auth/login`) y frontend conectadas y respondiendo `200 OK` devolviendo la información completa de la UI.
+- **[Marzo 2026] - Version 1.0.0:** Creación del documento fundacional de la Fase 0. Se decreta el uso definitivo de PostgreSQL y Prisma para habilitar un esquema que soporte el reemplazo total del papel, garantizando la trazabilidad histórica exigida por las jefaturas.

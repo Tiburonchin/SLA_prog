@@ -18,6 +18,7 @@ export interface Inspeccion {
   checklist: ItemChecklist[];
   observaciones?: string;
   firmaSupervisor: boolean;
+  firmaBase64?: string;
   latitudCierre?: number;
   longitudCierre?: number;
   fechaCierre?: string;
@@ -67,7 +68,7 @@ export const inspeccionesService = {
     return data;
   },
 
-  async cerrar(id: string, coords?: { latitudCierre?: number; longitudCierre?: number }): Promise<Inspeccion> {
+  async cerrar(id: string, coords?: { latitudCierre?: number; longitudCierre?: number; firmaBase64?: string }): Promise<Inspeccion> {
     const { data } = await api.post<Inspeccion>(`/inspecciones/${id}/cerrar`, coords || {});
     return data;
   },

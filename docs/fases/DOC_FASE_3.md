@@ -1,37 +1,34 @@
-# Documentación Fase 3: Dashboard Analítico, Reportes y PDF
+# Documento Fundacional: Fase 3 (Cierre, Seguridad y Exportación)
 
-## 1. Descripción General
+**Proyecto:** Sistema Web de Gestión de Seguridad Laboral (HSE)
+**Rol:** Custodio Ágil del Producto
+**Estado:** Activa
 
-La **Fase 3** consolida los datos recolectados en terreno y transaccionales para convertirlos en _Inteligencia de Negocios_ y generación de evidencia. Se enfoca en entregar trazabilidad visual (gráficas y reportes KPIs), facilitar extracciones CSV con gobernanza de roles, y compilar reportes PDF de ejecutividad a través de módulos especializados en el servidor.
+## 1. Visión Central y Propósito de la Fase 3
 
-## 2. Dashboard Analítico (Business Intelligence UI)
+La Fase 3 amolda la **Visión Central del Producto** a los requisitos corporativos y legales de la gerencia. Una vez logrado el ecosistema de "cero papel" en campo mediante el Frontend PWA (Fase 2) y el Backend robusto (Fase 1), esta fase añade capacidades de exportación forense inmutable (PDFs), endurecimiento de la seguridad del sistema frente a vulnerabilidades y distribución automática de alertas a directivos (workflows automatizados).
 
-Implementado en el Frontend a través de la interfaz de Recharts (moderno sistema gráfico en React).
+## 2. Generación Inmutable de Reportes (Exportación)
 
-- **Amonestaciones por Sucursal (Barras):** Exposición volumétrica subdividiéndose la información automáticamente entre grados `Leve`, `Grave` y `Critica` en cada sede operativa. Funciona de manera elástica y es alimentada por un endpoint especializado del Backend (`/estadisticas/por-sucursal`).
-- **KPIs Visuales y Donuts (Severidad y Estados):**
-  - Interfaz de anillos proporcionando ratio de cumplimiento entre "Inspecciones en curso", "Finalizadas" y "Canceladas".
-  - Tarjetas sumarias con colores semánticos (Verde éxito, Naranja cuidado, Rojo peligro).
-- **Tracker de Calibraciones (Sistema Alarma):** Grilla scrolleable visualizando las herramientas "Próximas a vencer". Tiene un _Semáforo Dinámico_ que advierte visualmente si el vencimiento es a <5 días, <15 días o <30 días usando colores cálidos incrementales en UI.
+Para suplir al 100% los requerimientos legales (auditorías ministeriales y gerenciales) donde habitualmente se imprimía papel, el sistema adopta una vía automatizada:
 
-## 3. Descargas de Data Directa (Exportaciones CSV Seguras)
+- **Generación de PDFs (Puppeteer/PDFKit):** El backend en NestJS expone endpoints para ensamblar reportes consolidados, actas de inspección firmadas y certificados de amonestaciones en formatos `.pdf` imposibles de alterar en terreno. Estos incluyen firmas, fechas, logs geo-referenciados y la evidencia fotográfica capturada.
+- **Exportación Estadísticas en CSV:** Emisión de sábanas de datos dinámicas para los Dashboards de la gerencia (utilizados por Recursos Humanos y Jefaturas).
 
-Se consolidó una solución rápida e indolora de reportería masiva directa.
+## 3. Seguridad Perimetral y Auditoría del Sistema
 
-- Exportación de formato **CSV con codificación BOM UTF-8** para importación universal limpia en Excel por parte de los supervisores o gerencia.
-- **Control por Roles estricto (Backend/Frontend):** En el backend, endpoints como `/exportar/csv` para inspecciones y amonestaciones están estrictamente decorados con `@Roles('COORDINADOR', 'JEFATURA')`, asegurando que el supervisor básico (de piso) no tenga autorización para bajar la matriz de negocio.
+Dado que el sistema recolecta el Expendiente Médico/Disciplinario (360°) de personal vulnerable, la seguridad se endurece de acuerdo a políticas corporativas:
 
-## 4. Motor de Reportes Ejecutivos (Backend / PDFKit)
+- **Trazabilidad Absoluta (Audit Trail):** Integración de mecanismos en NestJS para guardar un "Audit Log". Cada mutación en la base de datos (Ej. "El usuario X cambió fecha de vencimiento Y desde IP Z") queda registrada y expuesta sólo a roles jerárquicos superiores.
+- **Manejo Estricto de Sesiones y CORS:** Interceptores web, Helmet.js Headers y validaciones en NestJS para blindar Endpoints contra inyecciones SQL o intentos tipo "Insecure Direct Object Reference (IDOR)".
+- **Regulación Paginada y Performance:** Se impone el uso de cláusulas `skip/take` (Prisma) limitadas en todas las tramas de respuesta. Previene asfixia de peticiones (Rate Limiting) y fuga masiva de listados de empleados.
 
-Arquitectura generativa de documentos compilados sin intervención Frontend.
+## 4. Workflows y Sistema Proactivo de Alertas
 
-- **Módulo Reportes NestJS:** Se diseñó el `ReportesModule` el cual expone un endpoint (`GET /reportes/pdf/semanal`).
-- **Creación On-the-Fly:** Mediante el paquete `PDFKit`, de manera streaming, crea y encapsula en buffers el documento estructurado.
-- **Data inyectada en Documento PDF:** Recopila KPIs de la semana pasada (Volumen inspecciones, finalizadas, número de sanciones, y cuántas son críticas) listando además textualmente en tintas rojas aquellos instrumentos próximos a quedar fuera del margen de calibrabilidad en los siguientes 30 días. Todo esto lo transfiere como binario tipo MIME `application/pdf` descargable automáticamente al clic del usuario.
+El motor de notificaciones transforma el sistema pasivo en activo:
 
-## 5. Control de Vista Jefatura (Layout RBAC)
+- **Mailing Automático:** Si un Supervisor emite una "falta Crítica" in situ, la arquitectura acopla un sistema de correos (Ej. Nodemailer o SendGrid) para notificar inmediatamente a las jefaturas correspondientes.
 
-La interfaz del **Sidebar** ha evolucionado implementando un renderizado condicionado.
-La constante de navegación se filtra transparentemente; un usuario portador de rol `JEFATURA` u homologable pierde visibilidad del clutter operacional (Matriz IPC, alta de sucursales o escaner QR) y únicamente visualiza métricas de alto nivel (Dashboard y Reportes), logrando el estándar estricto de software as a service por permisos.
+## 5. Trazabilidad de Cambios (Changelog)
 
-_(Nota interna: Motor de Notificaciones Nodemailer/Cron aplazado intencionalmente previniendo configuración SMTP comercial final)._
+- **[Marzo 2026] - Version 1.0.0:** Creación del documento fundacional de la Fase 3. Se consolida el protocolo final del producto, estableciendo la entrega automatizada de documentos gerenciales PDF y el esquema riguroso de auditoría (Log tracking) dentro de NestJS para salvaguardar la información "cero papel" legalmente.

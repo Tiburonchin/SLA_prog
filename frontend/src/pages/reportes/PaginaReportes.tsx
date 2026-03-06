@@ -97,27 +97,27 @@ export default function PaginaReportes() {
             Indicadores clave de gestión HSE
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-col sm:flex-row flex-wrap">
           <button onClick={descargarPDFSemanal}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg text-white transition hover:shadow-lg"
+            className="flex items-center justify-center gap-2 px-4 py-3 min-h-[48px] text-sm font-medium rounded-lg text-white transition hover:shadow-lg active:scale-[0.97] w-full sm:w-auto"
             style={{ background: 'linear-gradient(135deg, var(--color-exito-500), #15803d)' }}>
-            <Download className="w-3.5 h-3.5" /> Reporte PDF
+            <Download className="w-4 h-4" /> Reporte PDF
           </button>
           <button onClick={() => descargarCSV('amonestaciones')}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border hover:bg-white/5 transition"
+            className="flex items-center justify-center gap-2 px-4 py-3 min-h-[48px] text-sm font-medium rounded-lg border hover:bg-white/5 transition active:scale-[0.97] w-full sm:w-auto"
             style={{ borderColor: 'var(--color-borde)' }}>
-            <Download className="w-3.5 h-3.5" /> CSV Amonestaciones
+            <Download className="w-4 h-4" /> CSV Amonestaciones
           </button>
           <button onClick={() => descargarCSV('inspecciones')}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border hover:bg-white/5 transition"
+            className="flex items-center justify-center gap-2 px-4 py-3 min-h-[48px] text-sm font-medium rounded-lg border hover:bg-white/5 transition active:scale-[0.97] w-full sm:w-auto"
             style={{ borderColor: 'var(--color-borde)' }}>
-            <Download className="w-3.5 h-3.5" /> CSV Inspecciones
+            <Download className="w-4 h-4" /> CSV Inspecciones
           </button>
         </div>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { titulo: 'Total Amonestaciones', valor: amonStats?.total || 0, color: 'var(--color-advertencia-500)', icono: AlertTriangle },
           { titulo: 'Inspecciones Completadas', valor: inspStats?.completadas || 0, color: 'var(--color-exito-500)', icono: TrendingUp },

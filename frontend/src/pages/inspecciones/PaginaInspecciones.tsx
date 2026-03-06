@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardCheck, Plus, Search, Filter, X, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { ClipboardCheck, Plus, Search, Filter, X, CheckCircle2, Clock, AlertCircle, Users } from 'lucide-react';
 import { inspeccionesService, type Inspeccion, type ItemChecklist, type CrearInspeccionData } from '../../services/inspecciones.service';
 import { sucursalesService, trabajadoresService, type Sucursal, type Trabajador } from '../../services/trabajadores.service';
 import { supervisoresService } from '../../services/supervisores.service';
 import { matrizIpcService } from '../../services/matrizIpc.service';
+import FormularioWizard from '../../components/forms/FormularioWizard';
 
 const ESTADO_CONFIG: Record<string, { label: string; color: string; bg: string; icon: any }> = {
   EN_PROGRESO: { label: 'En Progreso', color: '#3b82f6', bg: 'rgba(59,130,246,0.15)', icon: Clock },
@@ -149,9 +150,9 @@ export default function PaginaInspecciones() {
           </p>
         </div>
         <button onClick={() => setMostrarModal(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm text-white transition-all hover:shadow-lg"
+          className="flex items-center gap-2 px-5 py-3 min-h-[48px] rounded-lg font-medium text-sm text-white transition-all hover:shadow-lg active:scale-[0.97]"
           style={{ background: 'linear-gradient(135deg, var(--color-exito-500), #15803d)' }}>
-          <Plus className="w-4 h-4" /> Nueva Inspección
+          <Plus className="w-5 h-5" /> Nueva Inspección
         </button>
       </div>
 
@@ -160,13 +161,13 @@ export default function PaginaInspecciones() {
         <div className="relative flex-1 min-w-56">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--color-texto-tenue)' }} />
           <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar por tipo, ubicación, sucursal..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg text-sm border outline-none"
+            className="w-full pl-10 pr-4 py-3 min-h-[48px] rounded-lg text-sm border outline-none"
             style={{ backgroundColor: 'var(--color-fondo-card)', borderColor: 'var(--color-borde)', color: 'var(--color-texto-principal)' }} />
         </div>
-        <div className="relative">
+        <div className="relative w-full sm:w-auto">
           <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--color-texto-tenue)' }} />
           <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
-            className="pl-10 pr-8 py-2.5 rounded-lg text-sm border outline-none appearance-none"
+            className="w-full sm:w-auto pl-10 pr-8 py-3 min-h-[48px] rounded-lg text-sm border outline-none appearance-none"
             style={{ backgroundColor: 'var(--color-fondo-card)', borderColor: 'var(--color-borde)', color: 'var(--color-texto-principal)' }}>
             <option value="">Todos los estados</option>
             <option value="EN_PROGRESO">En Progreso</option>
@@ -234,81 +235,133 @@ export default function PaginaInspecciones() {
         </div>
       )}
 
-      {/* Modal de Crear Inspección */}
+      {/* Modal Wizard de Crear Inspección */}
       {mostrarModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="w-full max-w-xl rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--color-fondo-principal)', border: '1px solid var(--color-borde)' }}>
-            <div className="p-5 border-b flex justify-between items-center" style={{ borderColor: 'var(--color-borde)' }}>
-              <h3 className="font-bold text-lg flex items-center gap-2">
-                <ClipboardCheck className="w-5 h-5" style={{ color: 'var(--color-exito-500)' }} />
-                Nueva Inspección
-              </h3>
-              <button onClick={() => setMostrarModal(false)} className="p-1 hover:bg-white/10 rounded-lg transition"><X className="w-5 h-5" /></button>
-            </div>
-
-            <form id="form-insp" onSubmit={manejarCrear} className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
-              {errorForm && (
-                <div className="p-3 rounded-lg text-sm" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: 'var(--color-peligro-500)' }}>{errorForm}</div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Supervisor <span className="text-red-500">*</span></label>
-                  <select required value={form.supervisorId} onChange={e => setForm({ ...form, supervisorId: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg text-sm bg-transparent border outline-none" style={{ borderColor: 'var(--color-borde)' }}>
-                    <option value="">Seleccionar...</option>
-                    {supervisores.map(s => <option key={s.id} value={s.id}>{s.usuario?.nombreCompleto}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Sucursal <span className="text-red-500">*</span></label>
-                  <select required value={form.sucursalId} onChange={e => setForm({ ...form, sucursalId: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg text-sm bg-transparent border outline-none" style={{ borderColor: 'var(--color-borde)' }}>
-                    <option value="">Seleccionar...</option>
-                    {sucursales.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Ubicación / Zona <span className="text-red-500">*</span></label>
-                <input required value={form.ubicacion} onChange={e => setForm({ ...form, ubicacion: e.target.value })}
-                  placeholder="Ej: Área de soldadura, Piso 3..." className="w-full px-3 py-2 rounded-lg text-sm bg-transparent border outline-none" style={{ borderColor: 'var(--color-borde)' }} />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Tipo de Trabajo <span className="text-red-500">*</span></label>
-                <input required value={form.tipoTrabajo}
-                  onChange={e => handleTipoTrabajoChange(e.target.value)}
-                  placeholder="Ej: Trabajo en Altura, Excavación..." className="w-full px-3 py-2 rounded-lg text-sm bg-transparent border outline-none" style={{ borderColor: 'var(--color-borde)' }} />
-              </div>
-
-              {/* Checklist Preview */}
-              {checklistPreview.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium mb-2">Checklist Generado ({checklistPreview.length} ítems)</label>
-                  <div className="space-y-2 max-h-48 overflow-y-auto rounded-lg p-3" style={{ backgroundColor: 'var(--color-fondo-principal)', border: '1px solid var(--color-borde)' }}>
-                    {checklistPreview.map((item, idx) => (
-                      <label key={idx} className="flex items-center gap-2 cursor-pointer p-1.5 rounded hover:bg-white/5 transition">
-                        <input type="checkbox" checked={item.aprobado} onChange={() => toggleCheckItem(idx)} className="rounded" />
-                        <span className="text-sm">{item.descripcion}</span>
-                      </label>
-                    ))}
+        <FormularioWizard
+          titulo="Nueva Inspección"
+          icono={<ClipboardCheck className="w-5 h-5" style={{ color: 'var(--color-exito-500)' }} />}
+          guardando={guardando}
+          textoBotonFinal="Crear Inspección"
+          onCancelar={() => setMostrarModal(false)}
+          onSubmit={async () => {
+            setGuardando(true);
+            setErrorForm('');
+            try {
+              await inspeccionesService.crear(form);
+              setMostrarModal(false);
+              setForm({ supervisorId: '', sucursalId: '', ubicacion: '', tipoTrabajo: '', checklist: [], trabajadorIds: [] });
+              setChecklistPreview([]);
+              cargar();
+            } catch (err: any) {
+              setErrorForm(err.response?.data?.message || 'Error al crear inspección');
+              throw err;
+            } finally { setGuardando(false); }
+          }}
+          pasos={[
+            {
+              titulo: 'Datos Base',
+              descripcion: 'Supervisor, sucursal y ubicación de la inspección.',
+              validar: () => {
+                if (!form.supervisorId) return 'Seleccione un supervisor.';
+                if (!form.sucursalId) return 'Seleccione una sucursal.';
+                if (!form.ubicacion.trim()) return 'La ubicación es obligatoria.';
+                return true;
+              },
+              contenido: (
+                <>
+                  {errorForm && (
+                    <div className="p-3 rounded-lg text-sm font-medium" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: 'var(--color-peligro-500)' }}>{errorForm}</div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--color-texto-secundario)' }}>Supervisor <span className="text-red-500">*</span></label>
+                    <select required value={form.supervisorId} onChange={e => setForm({ ...form, supervisorId: e.target.value })}
+                      className="w-full px-4 py-3 min-h-[48px] rounded-lg text-base bg-transparent border outline-none" style={{ borderColor: 'var(--color-borde)' }}>
+                      <option value="">Seleccionar...</option>
+                      {supervisores.map(s => <option key={s.id} value={s.id}>{s.usuario?.nombreCompleto}</option>)}
+                    </select>
                   </div>
-                </div>
-              )}
-            </form>
-
-            <div className="p-4 border-t flex justify-end gap-3" style={{ borderColor: 'var(--color-borde)' }}>
-              <button type="button" onClick={() => setMostrarModal(false)} className="px-4 py-2 text-sm font-medium hover:bg-white/10 rounded-lg transition">Cancelar</button>
-              <button form="form-insp" type="submit" disabled={guardando}
-                className="px-5 py-2 text-sm font-bold text-white rounded-lg transition disabled:opacity-50"
-                style={{ background: 'linear-gradient(135deg, var(--color-exito-500), #15803d)' }}>
-                {guardando ? 'Creando...' : 'Crear Inspección'}
-              </button>
-            </div>
-          </div>
-        </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--color-texto-secundario)' }}>Sucursal <span className="text-red-500">*</span></label>
+                    <select required value={form.sucursalId} onChange={e => setForm({ ...form, sucursalId: e.target.value })}
+                      className="w-full px-4 py-3 min-h-[48px] rounded-lg text-base bg-transparent border outline-none" style={{ borderColor: 'var(--color-borde)' }}>
+                      <option value="">Seleccionar...</option>
+                      {sucursales.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--color-texto-secundario)' }}>Ubicación / Zona <span className="text-red-500">*</span></label>
+                    <input required value={form.ubicacion} onChange={e => setForm({ ...form, ubicacion: e.target.value })}
+                      placeholder="Ej: Área de soldadura, Piso 3..."
+                      className="w-full px-4 py-3 min-h-[48px] rounded-lg text-base bg-transparent border outline-none" style={{ borderColor: 'var(--color-borde)' }} />
+                  </div>
+                </>
+              ),
+            },
+            {
+              titulo: 'Tipo de Trabajo',
+              descripcion: 'El checklist se auto-genera según el tipo de trabajo seleccionado.',
+              validar: () => {
+                if (!form.tipoTrabajo.trim()) return 'El tipo de trabajo es obligatorio.';
+                return true;
+              },
+              contenido: (
+                <>
+                  <div>
+                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--color-texto-secundario)' }}>Tipo de Trabajo <span className="text-red-500">*</span></label>
+                    <input required value={form.tipoTrabajo}
+                      onChange={e => handleTipoTrabajoChange(e.target.value)}
+                      placeholder="Ej: Trabajo en Altura, Excavación..."
+                      className="w-full px-4 py-3 min-h-[48px] rounded-lg text-base bg-transparent border outline-none" style={{ borderColor: 'var(--color-borde)' }} />
+                  </div>
+                  {checklistPreview.length > 0 && (
+                    <div>
+                      <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--color-texto-secundario)' }}>Checklist ({checklistPreview.length} ítems)</label>
+                      <div className="space-y-2 max-h-64 overflow-y-auto rounded-lg p-2" style={{ backgroundColor: 'var(--color-fondo-card)', border: '1px solid var(--color-borde)' }}>
+                        {checklistPreview.map((item, idx) => (
+                          <label key={idx} className="flex items-center gap-3 cursor-pointer p-3 min-h-[48px] rounded-lg hover:bg-white/5 transition border border-transparent" style={{ borderColor: item.aprobado ? 'var(--color-exito-500)' : 'transparent', backgroundColor: item.aprobado ? 'rgba(34,197,94,0.05)' : 'transparent' }}>
+                            <input type="checkbox" checked={item.aprobado} onChange={() => toggleCheckItem(idx)} className="w-6 h-6 rounded" />
+                            <span className="text-sm">{item.descripcion}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ),
+            },
+            {
+              titulo: 'Trabajadores',
+              descripcion: 'Seleccione los trabajadores presentes en la zona (opcional).',
+              contenido: (
+                <>
+                  {trabajadores.length === 0 ? (
+                    <p className="text-sm py-8 text-center" style={{ color: 'var(--color-texto-tenue)' }}>No hay trabajadores registrados.</p>
+                  ) : (
+                    <div className="space-y-2 max-h-72 overflow-y-auto">
+                      {trabajadores
+                        .filter(t => !form.sucursalId || t.sucursalId === form.sucursalId)
+                        .map(t => {
+                          const seleccionado = form.trabajadorIds?.includes(t.id) || false;
+                          return (
+                            <label key={t.id} className={`flex items-center gap-3 cursor-pointer p-3 min-h-[48px] rounded-lg border transition ${seleccionado ? 'border-blue-500 bg-blue-500/5' : 'border-transparent hover:bg-white/5'}`}>
+                              <input type="checkbox" checked={seleccionado} onChange={() => {
+                                const ids = form.trabajadorIds || [];
+                                setForm({ ...form, trabajadorIds: seleccionado ? ids.filter(id => id !== t.id) : [...ids, t.id] });
+                              }} className="w-6 h-6 rounded" />
+                              <div>
+                                <p className="text-sm font-medium">{t.nombreCompleto}</p>
+                                <p className="text-xs" style={{ color: 'var(--color-texto-tenue)' }}>{t.cargo} — {t.dni}</p>
+                              </div>
+                            </label>
+                          );
+                        })}
+                    </div>
+                  )}
+                </>
+              ),
+            },
+          ]}
+        />
       )}
     </div>
   );

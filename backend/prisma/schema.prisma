@@ -102,6 +102,26 @@ model Trabajador {
   // Código QR único
   codigoQr            String?      @unique
 
+  // Foto de perfil (URL o Base64 Data URI)
+  fotoUrl             String?
+
+  // Datos médicos expandidos
+  alergias                String?
+  condicionesPreexistentes String?
+  eps                     String?   // Entidad Prestadora de Salud
+  arl                     String?   // Administradora de Riesgos Laborales
+  fechaUltimoExamen       DateTime?
+
+  // Datos auxiliares del trabajador
+  fechaIngreso            DateTime?  // Fecha de ingreso a la empresa
+  fechaNacimiento         DateTime?  // Para verificación de edad en roles de riesgo
+  curp                    String?    // Clave Única de Registro de Población
+  nss                     String?    // Número de Seguro Social (IMSS)
+  telefono                String?    // Teléfono personal
+  correo                  String?    // Correo electrónico personal
+  turno                   String?    // DIURNO, NOCTURNO, MIXTO
+  nivelEducativo          String?    // PRIMARIA, SECUNDARIA, PREPARATORIA, UNIVERSIDAD, POSGRADO
+
   sucursalId          String
   activo              Boolean      @default(true)
   creadoEn            DateTime     @default(now())
@@ -152,6 +172,7 @@ model Equipo {
   marca           String?
   modelo          String?
   numeroSerie     String       @unique
+  nfcTagId        String?      @unique
   estado          EstadoEquipo @default(OPERATIVO)
   descripcion     String?
   manualUrl       String?      // Ruta al manual técnico adjunto
@@ -174,7 +195,7 @@ model Calibracion {
   creadoEn                DateTime @default(now())
 
   // Relaciones
-  equipo                  Equipo   @relation(fields: [equipoId], references: [id], onDelete: Cascade)
+  equipo                  Equipo   @relation(fields: [equipoId], references: [id], onDelete: Restrict) // SEC: Historial de calibraciones es inmutable
 
   @@map("calibraciones")
 }
@@ -211,7 +232,7 @@ model EntregaEpp {
   creadoEn        DateTime @default(now())
 
   // Relaciones
-  trabajador      Trabajador @relation(fields: [trabajadorId], references: [id], onDelete: Cascade)
+  trabajador      Trabajador @relation(fields: [trabajadorId], references: [id], onDelete: Restrict) // SEC: Historial de EPP es inmutable (Expediente 360°)
 
   @@map("entregas_epp")
 }
@@ -228,7 +249,7 @@ model Capacitacion {
   creadoEn          DateTime @default(now())
 
   // Relaciones
-  trabajador        Trabajador @relation(fields: [trabajadorId], references: [id], onDelete: Cascade)
+  trabajador        Trabajador @relation(fields: [trabajadorId], references: [id], onDelete: Restrict) // SEC: Certificaciones son inmutables (Expediente 360°)
 
   @@map("capacitaciones")
 }
@@ -249,6 +270,7 @@ model Inspeccion {
   
   // Cierre
   firmaSupervisor Boolean           @default(false)
+  firmaBase64     String?           // Almacena la imagen base64 de la firma
   latitudCierre   Float?
   longitudCierre  Float?
   fechaCierre     DateTime?
@@ -360,7 +382,7 @@ model RegistroAuditoria {
   creadoEn    DateTime @default(now())
 
   // Relaciones
-  usuario     Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuario     Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Restrict) // SEC: Audit Trail inmutable (Trazabilidad Absoluta PRD §5)
 
   @@map("registros_auditoria")
 }

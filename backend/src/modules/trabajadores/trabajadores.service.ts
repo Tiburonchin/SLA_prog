@@ -30,6 +30,7 @@ export class TrabajadoresService {
         where,
         include: {
           sucursal: { select: { id: true, nombre: true } },
+          _count: { select: { entregasEpp: true, capacitaciones: true, amonestaciones: true, inspecciones: true } },
         },
         orderBy: { nombreCompleto: 'asc' },
         skip,
@@ -74,6 +75,37 @@ export class TrabajadoresService {
     return trabajador;
   }
 
+  // Obtener datos médicos de emergencia optimizados
+  async obtenerEmergencia(id: string) {
+    const trabajador = await this.prisma.trabajador.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        nombreCompleto: true,
+        dni: true,
+        tipoSangre: true,
+        contactoEmergencia: true,
+        telefonoEmergencia: true,
+        estadoSalud: true,
+        alergias: true,
+        condicionesPreexistentes: true,
+        eps: true,
+        arl: true,
+        fechaUltimoExamen: true,
+        capacitaciones: {
+          where: { nombreCurso: { contains: 'auxilios', mode: 'insensitive' }, vigente: true },
+          select: { nombreCurso: true, fechaVencimiento: true }
+        }
+      }
+    });
+
+    if (!trabajador) {
+      throw new NotFoundException('Trabajador no encontrado');
+    }
+
+    return trabajador;
+  }
+
   // Buscar trabajador por código QR
   async obtenerPorQr(codigoQr: string) {
     const trabajador = await this.prisma.trabajador.findUnique({
@@ -98,9 +130,15 @@ export class TrabajadoresService {
       throw new ConflictException('Ya existe un trabajador con ese DNI');
     }
 
+    const { fotoBase64, fechaUltimoExamen, fechaIngreso, fechaNacimiento, ...restDto } = dto;
+
     return this.prisma.trabajador.create({
       data: {
-        ...dto,
+        ...restDto,
+        fotoUrl: fotoBase64,
+        fechaUltimoExamen: fechaUltimoExamen ? new Date(fechaUltimoExamen) : undefined,
+        fechaIngreso: fechaIngreso ? new Date(fechaIngreso) : undefined,
+        fechaNacimiento: fechaNacimiento ? new Date(fechaNacimiento) : undefined,
         codigoQr: `HSE-${dto.dni}-${Date.now()}`,
       },
       include: {
@@ -116,9 +154,17 @@ export class TrabajadoresService {
       throw new NotFoundException('Trabajador no encontrado');
     }
 
+    const { fotoBase64, fechaUltimoExamen, fechaIngreso, fechaNacimiento, ...restDto } = dto;
+
     return this.prisma.trabajador.update({
       where: { id },
-      data: dto,
+      data: {
+        ...restDto,
+        ...(fotoBase64 !== undefined && { fotoUrl: fotoBase64 }),
+        ...(fechaUltimoExamen !== undefined && { fechaUltimoExamen: fechaUltimoExamen ? new Date(fechaUltimoExamen) : null }),
+        ...(fechaIngreso !== undefined && { fechaIngreso: fechaIngreso ? new Date(fechaIngreso) : null }),
+        ...(fechaNacimiento !== undefined && { fechaNacimiento: fechaNacimiento ? new Date(fechaNacimiento) : null }),
+      },
       include: {
         sucursal: { select: { id: true, nombre: true } },
       },

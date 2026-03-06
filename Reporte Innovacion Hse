@@ -1,0 +1,150 @@
+# 🔬 Reporte de Innovación — Sistema de Gestión HSE
+
+**Fecha:** 2026-03-04 · **Rol:** Analista de Innovación y UX/UI (hse-scout)
+
+---
+
+## Resumen Ejecutivo
+
+Se realizó un análisis completo del estado actual del sistema HSE (11 módulos backend, 11 páginas frontend, tema Tailwind v4 dark-mode, store Zustand offline para inspecciones, suite DAST con 27/30 tests pasados) y se contrastó con las tendencias globales en software de seguridad laboral 2025-2026, estándares WCAG 2.2/3.0 para trabajadores de campo, y buenas prácticas de PWA offline.
+
+A continuación se presentan **7 propuestas de innovación** clasificadas por prioridad, cada una con su problema detectado, solución propuesta, impacto en accesibilidad e indicaciones de implementación para los agentes `@hse-ui` y `@hse-core`.
+
+---
+
+## 🟥 Prioridad Alta — Mejoras Críticas
+
+### 1. PWA Completa: Service Worker, Manifest e Instalabilidad
+
+| Aspecto                      | Detalle                                                                                                                                                                                                                                                                                                                                                                           |
+| :--------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Problema**                 | El frontend tiene un store offline para inspecciones (`inspecciones-offline.store.ts`) pero **no existe** `manifest.json`, ni Service Worker configurado, ni integración con Workbox. La app no es instalable ni cachea recursos estáticos. Un supervisor que pierde señal 4G en una mina pierde acceso total.                                                                    |
+| **Solución**                 | Implementar PWA completa usando `vite-plugin-pwa` con Workbox: generar `manifest.json` con iconos, tema y `display: standalone`; registrar un Service Worker con estrategia _cache-first_ para assets estáticos y _stale-while-revalidate_ para datos de API; cachear matrices IPC y catálogos de EPP en IndexedDB; agregar banner de instalación y página offline personalizada. |
+| **Impacto en Accesibilidad** | Permite uso real en zonas sin conectividad (minas, sótanos, torres). Es la mejora más crítica del PRD §6 pendiente.                                                                                                                                                                                                                                                               |
+| **Implementación**           | `@hse-ui`: Instalar `vite-plugin-pwa`, configurar `manifest.json`, crear `OfflineFallback.tsx`. `@hse-core`: Crear endpoint `/api/sync` para reconciliación de datos offline con manejo de conflictos.                                                                                                                                                                            |
+
+---
+
+### 2. Accesibilidad WCAG 2.2 para Operarios en Campo
+
+| Aspecto      | Detalle                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| :----------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Problema** | La UI actual carece de atributos ARIA, roles semánticos, skip-links y gestión de foco. Los botones usan tamaños estándar (~40px) insuficientes para uso con guantes de seguridad (mínimo 48dp / 44×44px según WCAG). No hay modo de alto contraste para luz solar directa. Contraste actual en `--color-texto-secundario: #94a3b8` sobre `--color-fondo-card: #1e293b` es ~5.4:1 (aceptable), pero algunos íconos y badges tienen contraste inferior a 4.5:1. |
+| **Solución** | Aplicar checklist WCAG 2.2 completo:                                                                                                                                                                                                                                                                                                                                                                                                                          |
+
+**Medidas específicas:**
+
+| Mejora                   | Criterio WCAG     | Acción                                                                              |
+| :----------------------- | :---------------- | :---------------------------------------------------------------------------------- |
+| **Tap targets ≥ 48dp**   | 2.5.8 Target Size | Aumentar todos los botones interactivos a `min-h-12 min-w-12` (48px)                |
+| **Contraste alto solar** | 1.4.3 / 1.4.6     | Crear tema `@media (prefers-contrast: more)` con fondos blancos y texto negro       |
+| **Focus visible**        | 2.4.7 / 2.4.11    | Agregar `focus-visible:ring-2 focus-visible:ring-primary-400` global                |
+| **Skip navigation**      | 2.4.1             | Insertar `<a href="#main-content" class="sr-only focus:not-sr-only">`               |
+| **Roles ARIA**           | 4.1.2             | Etiquetar `role="navigation"`, `role="main"`, `aria-label` en sidebar y modales     |
+| **Formularios**          | 1.3.1 / 3.3.2     | Asociar `<label htmlFor>` a cada `<input>`, agregar `aria-describedby` para errores |
+| **Texto escalable**      | 1.4.4             | Usar `rem` en vez de `px` para font-sizes; verificar zoom 200%                      |
+
+| **Impacto**        | Permite uso real con guantes gruesos, lentes oscuros de seguridad, y bajo sol directo. Cumple la directriz del PRD §5 de "Mobile-First Extremo".                                          |
+| :----------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Implementación** | `@hse-ui`: Refactorizar componentes con atributos ARIA, crear tema de alto contraste en `index.css`, aumentar tap targets en `PaginaInspecciones`, `PaginaAmonestaciones`, y formularios. |
+
+---
+
+## 🟧 Prioridad Media — Mejoras de Alto Valor
+
+### 3. Alertas de Estrés Térmico (API Meteorológica)
+
+| Aspecto                      | Detalle                                                                                                                                                                                                                                                                                                                                               |
+| :--------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Problema**                 | El PRD menciona trabajos en exteriores de alto riesgo (torres eléctricas, construcción) pero el sistema no considera el riesgo por golpe de calor, que es la causa #1 de muerte por condiciones ambientales en el sector.                                                                                                                             |
+| **Solución**                 | Integrar una API meteorológica liviana (OpenWeatherMap Free tier: 1000 calls/día) para calcular el índice **WBGT** (Wet Bulb Globe Temperature). Mostrar un banner de alerta en el Dashboard y antes de iniciar una inspección en campo: 🟢 < 25°C, 🟡 25-28°C, 🔴 > 28°C → "Riesgo de golpe de calor: implemente pausas de hidratación cada 20 min." |
+| **Impacto en Accesibilidad** | Prevención activa de incidentes graves. No requiere descarga de modelos pesados; una llamada HTTP por sucursal cada 30 min es suficiente. Compatible con conectividad baja.                                                                                                                                                                           |
+| **Implementación**           | `@hse-core`: Crear `WeatherModule` en NestJS con `@nestjs/schedule` (cron cada 30 min), cachear resultado en Redis o memoria. Endpoint `GET /weather/alert/:sucursalId`. `@hse-ui`: Componente `<AlertaClimatica />` en Dashboard y pantalla de nueva inspección.                                                                                     |
+
+---
+
+### 4. Verificación de Equipos por NFC (Complemento al QR)
+
+| Aspecto                      | Detalle                                                                                                                                                                                                                                                                                     |
+| :--------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Problema**                 | El sistema usa QR para identificar trabajadores, pero la verificación de equipos/herramientas se hace ingresando códigos manualmente. En campo con guantes esto es lento y propenso a errores. Los tags QR en herramientas se degradan rápido por polvo, aceite y sol.                      |
+| **Solución**                 | Agregar soporte para lectura NFC usando la **Web NFC API** (`navigator.nfc`, soportada en Chrome Android 89+). Un tag NFC industrial (~$0.15 USD c/u) adherido a cada herramienta contiene su UUID. Al acercar el teléfono, el sistema cruza automáticamente con la tabla de calibraciones. |
+| **Impacto en Accesibilidad** | Elimina la necesidad de teclear códigos con guantes. Un toque de <1 segundo vs ~15 segundos tecleando. Los tags NFC industriales resisten calor, agua y químicos.                                                                                                                           |
+| **Implementación**           | `@hse-ui`: Crear `useNfcReader()` hook con fallback a entrada manual. Integrarlo en `PaginaDetalleEquipo` y flujo de inspecciones. `@hse-core`: Agregar campo `nfcTagId` al modelo `Equipo` en Prisma.                                                                                      |
+
+> [!NOTE]
+> Web NFC solo funciona en Android + Chrome. Para iOS se mantiene el flujo QR/manual como fallback. Esto es aceptable ya que >85% de los supervisores en campo usan Android.
+
+---
+
+### 5. Modo "Emergencia" con Información Médica Rápida
+
+| Aspecto                      | Detalle                                                                                                                                                                                                                                                                                                          |
+| :--------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Problema**                 | El Perfil 360° del trabajador muestra datos médicos, pero en una emergencia real (accidente en campo), navegar por menús toma demasiado tiempo. El PRD exige desplegar info en <2 segundos.                                                                                                                      |
+| **Solución**                 | Crear una vista `ModoEmergencia` accesible desde el QR scanner con un botón rojo prominente. Muestra en pantalla completa: **Nombre, foto, tipo de sangre, alergias, contactos de emergencia, y certificación de primeros auxilios vigente**. Sin menús, sin scroll, fuente 24px mínimo, alto contraste forzado. |
+| **Impacto en Accesibilidad** | Crítico para primeros auxilios en campo. Fuente grande legible bajo estrés y con visibilidad reducida. Un solo toque para acceder.                                                                                                                                                                               |
+| **Implementación**           | `@hse-ui`: Crear `PaginaEmergencia.tsx` con ruta `/emergencia/:trabajadorId`. Botón rojo en `PaginaEscanerQr`. `@hse-core`: Endpoint optimizado `GET /trabajadores/:id/emergencia` que solo devuelve campos médicos (query liviana).                                                                             |
+
+---
+
+## 🟨 Prioridad Baja — Mejoras de Valor Añadido
+
+### 6. Firma Digital Táctil en Inspecciones
+
+| Aspecto                      | Detalle                                                                                                                                                                                                                                              |
+| :--------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Problema**                 | Las inspecciones se "cierran" digitalmente pero no tienen firma visual del supervisor ni del trabajador. En auditorías legales, una firma electrónica añade validez probatoria. Las apps líderes (SafetyCulture, Fluix) ya lo incluyen.              |
+| **Solución**                 | Integrar un canvas de firma (librería `react-signature-canvas`, ~8KB gzip) al cierre de inspección. La firma se guarda como imagen PNG base64 en el registro, y se incluye en el PDF exportado.                                                      |
+| **Impacto en Accesibilidad** | El canvas de firma debe tener tamaño mínimo 300×150px para uso con dedo/guante. Agregar opción "borrar y repetir" con botón grande.                                                                                                                  |
+| **Implementación**           | `@hse-ui`: Instalar `react-signature-canvas`, integrarlo en `PaginaDetalleInspeccion` al momento de completar. `@hse-core`: Agregar campo `firmaBase64` al modelo `Inspeccion` en Prisma. Incluir imagen de firma en el template de PDF (Puppeteer). |
+
+---
+
+### 7. Push Notifications para Alertas Críticas
+
+| Aspecto                      | Detalle                                                                                                                                                                                                                                                                                       |
+| :--------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Problema**                 | Las notificaciones actuales son vía email (Nodemailer). Si el Coordinador no revisa el correo, una falta "Crítica" puede pasar desapercibida por horas. El PRD §5 exige <5 min de latencia en notificaciones de faltas graves.                                                                |
+| **Solución**                 | Implementar **Web Push Notifications** usando la Push API del Service Worker (requisito: ya tener PWA del punto #1). Firebase Cloud Messaging (FCM) ofrece tier gratuito ilimitado. Al registrarse una amonestación "CRITICA", el backend dispara push instantáneo al Coordinador y Jefatura. |
+| **Impacto en Accesibilidad** | Las notificaciones push funcionan incluso con la app cerrada y son accesibles por lectores de pantalla. En Android generan vibración y sonido, alertando al usuario sin necesidad de mirar la pantalla.                                                                                       |
+| **Implementación**           | `@hse-core`: Integrar `web-push` o Firebase Admin SDK. Crear `PushSubscription` model en Prisma. Disparar en `AmonestacionesService.crear()` cuando severidad ≥ GRAVE. `@hse-ui`: Solicitar permiso de notificaciones al login, guardar suscripción vía endpoint.                             |
+
+---
+
+## 📊 Matriz de Priorización
+
+| #   | Propuesta              | Esfuerzo |  Impacto   | Dependencia            |
+| :-- | :--------------------- | :------: | :--------: | :--------------------- |
+| 1   | PWA Completa           | 🔴 Alto  | 🔴 Crítico | Ninguna                |
+| 2   | Accesibilidad WCAG 2.2 | 🟡 Medio | 🔴 Crítico | Ninguna                |
+| 3   | Alertas Estrés Térmico | 🟢 Bajo  |  🟡 Alto   | API Key OpenWeatherMap |
+| 4   | NFC para Equipos       | 🟡 Medio |  🟡 Alto   | Solo Android+Chrome    |
+| 5   | Modo Emergencia        | 🟢 Bajo  | 🔴 Crítico | Ninguna                |
+| 6   | Firma Digital          | 🟢 Bajo  |  🟡 Medio  | Ninguna                |
+| 7   | Push Notifications     | 🟡 Medio |  🟡 Alto   | Requiere #1 (PWA)      |
+
+---
+
+## 🗺️ Roadmap Sugerido
+
+```mermaid
+gantt
+    title Roadmap de Innovación HSE
+    dateFormat  YYYY-MM-DD
+    section Fase Inmediata
+    PWA Completa (SW + Manifest)       :a1, 2026-03-10, 7d
+    Accesibilidad WCAG 2.2             :a2, 2026-03-10, 10d
+    Modo Emergencia                    :a3, 2026-03-15, 3d
+    section Fase Siguiente
+    Alertas Estrés Térmico             :b1, 2026-03-20, 5d
+    NFC para Equipos                   :b2, 2026-03-20, 7d
+    Firma Digital                      :b3, 2026-03-25, 3d
+    section Fase Final
+    Push Notifications                 :c1, after a1, 5d
+```
+
+---
+
+> [!IMPORTANT]
+> Este reporte es un documento de investigación y propuesta. **Ninguna de estas ideas requiere modificar código directamente.** Las implementaciones deben ser asignadas a los agentes `@hse-ui` (frontend) y `@hse-core` (backend) según las indicaciones de cada propuesta.

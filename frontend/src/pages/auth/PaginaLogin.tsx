@@ -1,15 +1,34 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth.store';
 import { Shield, Loader2, Eye, EyeOff } from 'lucide-react';
 
 export default function PaginaLogin() {
   const navigate = useNavigate();
-  const { login, cargando, error, limpiarError } = useAuthStore();
+  const { login, cargando, error, limpiarError, usuario, inicializando } = useAuthStore();
 
+  // Hooks deben declararse siempre (antes de cualquier return condicional)
   const [correo, setCorreo] = useState('');
   const [contrasena, setContrasena] = useState('');
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
+
+  // Si ya hay sesión activa redirigir directo al dashboard
+  if (!inicializando && usuario) {
+    return <Navigate to="/" replace />;
+  }
+
+  // Mientras se verifica la sesión guardada, mostrar spinner
+  if (inicializando) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: 'var(--color-fondo-principal)' }}
+      >
+        <div className="w-10 h-10 rounded-full border-4 animate-spin"
+          style={{ borderColor: 'var(--color-primary-500)', borderTopColor: 'transparent' }} />
+      </div>
+    );
+  }
 
   const manejarSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,8 +179,8 @@ export default function PaginaLogin() {
           <p className="font-medium" style={{ color: 'var(--color-primary-400)' }}>
             Credenciales de prueba:
           </p>
-          <p>📧 coordinador@hse.com</p>
-          <p>🔑 AdminHSE2026!</p>
+          <p>Correo: coordinador@hse.com</p>
+          <p>Clave: AdminHSE2026!</p>
         </div>
       </div>
     </div>

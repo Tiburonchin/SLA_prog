@@ -46,9 +46,11 @@ Si tu tarea está relacionada con vulnerabilidades, testing de intrusión (Pente
 
 ## 💻 4. Recursos Específicos por Módulo
 
-| Archivo                    | Ubicación   | Función Principal                                                                                    |
-| :------------------------- | :---------- | :--------------------------------------------------------------------------------------------------- |
-| **`README.md` (Frontend)** | `/frontend` | Configuración específica de la aplicación React web (Vite, Tailwind, variables de entorno frontend). |
+| Archivo                                   | Ubicación    | Función Principal                                                                                    |
+| :---------------------------------------- | :----------- | :--------------------------------------------------------------------------------------------------- |
+| **`README.md` (Frontend)**                | `/frontend`  | Configuración específica de la aplicación React web (Vite, Tailwind, variables de entorno frontend). |
+| **`Modulos_Trabajadores.md`**             | `/docs/core` | Documentación técnica del módulo Expediente 360° Trabajadores.                                     |
+| **`Modulos_Sucursales.md`**               | `/docs/core` | Documentación técnica del Centro de Control de Riesgos y Emergencias (Sedes).                      |
 
 ---
 

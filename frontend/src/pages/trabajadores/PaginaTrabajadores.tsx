@@ -11,10 +11,10 @@ import { trabajadoresService, sucursalesService } from '../../services/trabajado
 import type { Trabajador, Sucursal, CrearTrabajadorData, PaginacionRespuesta } from '../../services/trabajadores.service';
 
 /* ─── Constantes ─── */
-const ESTADO_SALUD_BADGE: Record<string, { label: string; color: string; bg: string }> = {
-  APTO: { label: 'Apto', color: 'var(--color-exito-500)', bg: 'rgba(34, 197, 94, 0.15)' },
-  NO_APTO: { label: 'No Apto', color: 'var(--color-peligro-500)', bg: 'rgba(239, 68, 68, 0.15)' },
-  APTO_CON_RESTRICCIONES: { label: 'Restricciones', color: 'var(--color-advertencia-500)', bg: 'rgba(245, 158, 11, 0.15)' },
+const ESTADO_EMO_BADGE: Record<string, { label: string; color: string; bg: string }> = {
+  APTO:             { label: 'EMO: Apto',         color: 'var(--color-exito-500)',       bg: 'rgba(34, 197, 94, 0.15)' },
+  NO_APTO:          { label: 'EMO: No Apto',      color: 'var(--color-peligro-500)',     bg: 'rgba(239, 68, 68, 0.15)' },
+  APTO_RESTRICCION: { label: 'EMO: Restricciones',color: 'var(--color-advertencia-500)', bg: 'rgba(245, 158, 11, 0.15)' },
 };
 
 const TIPOS_SANGRE = ['', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -36,7 +36,7 @@ function Badge({ valor, color = 'blue' }: { valor: number; color?: string }) {
 }
 
 /* ─── Menú contextual ─── */
-function MenuAcciones({ onVer, onDesactivar }: { onVer: () => void; onDesactivar: () => void }) {
+function MenuAcciones({ onVer }: { onVer: () => void }) {
   const [abierto, setAbierto] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -56,9 +56,6 @@ function MenuAcciones({ onVer, onDesactivar }: { onVer: () => void; onDesactivar
           <button onClick={() => { onVer(); setAbierto(false); }} className="w-full flex items-center gap-2.5 px-4 min-h-[44px] hover:bg-white/5 transition-colors text-left text-sm font-medium focus:ring-2 focus:ring-inset focus:ring-blue-500/50 outline-none" style={{ color: 'var(--color-texto-principal)' }}>
             <Eye className="w-4 h-4 text-blue-400" /> Ver Perfil 360°
           </button>
-          <button onClick={() => { onDesactivar(); setAbierto(false); }} className="w-full flex items-center gap-2.5 px-4 min-h-[44px] hover:bg-red-500/10 transition-colors text-left text-sm font-medium text-red-400 focus:ring-2 focus:ring-inset focus:ring-red-500/50 outline-none">
-            <Trash2 className="w-4 h-4" /> Desactivar
-          </button>
         </div>
       )}
     </div>
@@ -69,7 +66,7 @@ function MenuAcciones({ onVer, onDesactivar }: { onVer: () => void; onDesactivar
 function exportarCSV(trabajadores: Trabajador[]) {
   const h = 'Nombre,DNI,Cargo,Sucursal,Salud,EPP,Capacitaciones,Amonestaciones';
   const rows = trabajadores.map(t =>
-    `"${t.nombreCompleto}","${t.dni}","${t.cargo}","${t.sucursal?.nombre || ''}","${t.estadoSalud}",${t._count?.entregasEpp || 0},${t._count?.capacitaciones || 0},${t._count?.amonestaciones || 0}`
+    `"${t.nombreCompleto}","${t.dni}","${t.cargo}","${t.sucursal?.nombre || ''}","${t.estadoEMO}",${t._count?.entregasEpp || 0},${t._count?.capacitaciones || 0},${t._count?.amonestaciones || 0}`
   );
   const csv = [h, ...rows].join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -328,7 +325,7 @@ export default function PaginaTrabajadores() {
 
   // Filter by health status on client since backend doesn't support it
   const trabajadoresFiltrados = filtroSalud
-    ? paginacion.datos.filter(t => t.estadoSalud === filtroSalud)
+    ? paginacion.datos.filter(t => t.estadoEMO === filtroSalud)
     : paginacion.datos;
 
   // KPIs
@@ -336,14 +333,6 @@ export default function PaginaTrabajadores() {
   const sinEpp = paginacion.datos.filter(t => (t._count?.entregasEpp || 0) === 0).length;
   const totalCaps = paginacion.datos.reduce((a, t) => a + (t._count?.capacitaciones || 0), 0);
   const totalAmon = paginacion.datos.reduce((a, t) => a + (t._count?.amonestaciones || 0), 0);
-
-  const manejarDesactivar = async (id: string, nombre: string) => {
-    if (!window.confirm(`¿Desactivar al trabajador "${nombre}"?`)) return;
-    try {
-      await trabajadoresService.desactivar(id);
-      cargarDatos();
-    } catch { alert('Error al desactivar'); }
-  };
 
   return (
     <div className="space-y-6">
@@ -406,109 +395,113 @@ export default function PaginaTrabajadores() {
         <div className="relative w-full lg:w-auto min-w-[200px]">
           <Heart className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'var(--color-texto-tenue)' }} />
           <select value={filtroSalud} onChange={e => setFiltroSalud(e.target.value)} className="w-full pl-10 pr-8 min-h-[44px] rounded-xl bg-white/5 border border-transparent hover:bg-white/10 focus:border-blue-500/50 outline-none appearance-none text-sm cursor-pointer transition-all" style={{ color: 'var(--color-texto-principal)' }}>
-            <option value="">Todos los estados vitales</option>
-            <option value="APTO">Apto para laborar</option>
+            <option value="">Todos los estados EMO</option>
+            <option value="APTO">Apto</option>
             <option value="NO_APTO">No Apto</option>
-            <option value="APTO_CON_RESTRICCIONES">Apto con Restricciones</option>
+            <option value="APTO_RESTRICCION">Apto con Restricciones</option>
           </select>
         </div>
       </div>
 
       {/* ── TABLA ── */}
-      <div className="overflow-x-auto">
-        {cargando ? (
-          <div className="p-6 space-y-4">
-            {[1, 2, 3, 4, 5].map(i => <div key={i} className="skeleton-loader h-14 rounded-lg" />)}
-          </div>
-        ) : trabajadoresFiltrados.length === 0 ? (
-          <div className="p-12 text-center">
-            <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-blue-500/10"><Users className="w-8 h-8 text-blue-400" /></div>
-            </div>
-            <h3 className="text-lg font-bold mb-2">No se encontraron trabajadores</h3>
-            <p className="text-sm mb-6 max-w-sm mx-auto" style={{ color: 'var(--color-texto-secundario)' }}>
-              {busqueda ? 'Intenta con otros términos de búsqueda' : 'Registra tu primer trabajador para comenzar'}
-            </p>
-            {!busqueda && (
-              <button onClick={() => setDrawerAbierto(true)} className="px-6 min-h-[44px] text-white rounded-lg font-bold text-sm transition-transform active:scale-95 shadow-lg focus:ring-2 focus:ring-blue-400 outline-none" style={{ background: 'linear-gradient(135deg, var(--color-primary-500), var(--color-primary-600))' }}>
-                Crear primer trabajador
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b text-xs uppercase tracking-wider" style={{ borderColor: 'var(--color-borde)', color: 'var(--color-texto-tenue)' }}>
-                  <th className="px-5 py-3.5 font-semibold">Trabajador</th>
-                  <th className="px-5 py-3.5 font-semibold">Cargo</th>
-                  <th className="px-5 py-3.5 font-semibold">Sucursal</th>
-                  <th className="px-5 py-3.5 font-semibold text-center">Salud</th>
-                  <th className="px-5 py-3.5 font-semibold text-center">EPP</th>
-                  <th className="px-5 py-3.5 font-semibold text-center">Capacitaciones</th>
-                  <th className="px-5 py-3.5 font-semibold text-center">Amonestaciones</th>
-                  <th className="px-5 py-3.5 font-semibold text-right">Acciones</th>
+      <div className="overflow-x-auto rounded-none border-b border-t border-transparent">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b text-xs uppercase tracking-wider" style={{ borderColor: 'var(--color-borde)', color: 'var(--color-texto-tenue)' }}>
+              <th className="px-5 py-3.5 font-semibold">Trabajador</th>
+              <th className="px-5 py-3.5 font-semibold">Cargo</th>
+              <th className="px-5 py-3.5 font-semibold">Sucursal</th>
+              <th className="px-5 py-3.5 font-semibold text-center">Salud</th>
+              <th className="px-5 py-3.5 font-semibold text-center">EPP</th>
+              <th className="px-5 py-3.5 font-semibold text-center">Capacitaciones</th>
+              <th className="px-5 py-3.5 font-semibold text-center">Amonestaciones</th>
+              <th className="px-5 py-3.5 font-semibold text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody className="text-sm">
+            {cargando ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i} className="border-b" style={{ borderColor: 'var(--color-borde)' }}>
+                  <td colSpan={8} className="px-5 py-4">
+                    <div className="skeleton-loader h-10 rounded-lg w-full opacity-50" />
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="text-sm">
-                {trabajadoresFiltrados.map(t => {
-                  const badge = ESTADO_SALUD_BADGE[t.estadoSalud];
-                  return (
-                    <tr
-                      key={t.id}
-                      className="border-b transition-colors hover:bg-white/5 focus-within:bg-white/5 cursor-pointer group"
-                      style={{ borderColor: 'var(--color-borde)' }}
-                      onClick={() => navigate(`/trabajadores/${t.id}`)}
-                    >
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          {t.fotoUrl ? (
-                            <img src={t.fotoUrl} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
-                          ) : (
-                            <div className="notranslate w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ backgroundColor: 'var(--color-primary-500)', color: 'white', opacity: 0.85 }} aria-hidden="true">
-                              {t.nombreCompleto.split(' ').map(n => n.charAt(0)).slice(0, 2).join('')}
-                            </div>
-                          )}
-                          <div>
-                            <span className="font-semibold">{t.nombreCompleto}</span>
-                            <p className="text-xs mt-0.5" style={{ color: 'var(--color-texto-tenue)' }}>DNI: {t.dni}</p>
+              ))
+            ) : trabajadoresFiltrados.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="p-12 text-center">
+                  <div className="flex justify-center mb-4">
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-blue-500/10"><Users className="w-8 h-8 text-blue-400" /></div>
+                  </div>
+                  <h3 className="text-lg font-bold mb-2">No se encontraron trabajadores</h3>
+                  <p className="text-sm mb-6 max-w-sm mx-auto" style={{ color: 'var(--color-texto-secundario)' }}>
+                    {busqueda ? 'Intenta con otros términos de búsqueda' : 'Registra tu primer trabajador para comenzar'}
+                  </p>
+                  {!busqueda && (
+                    <button onClick={() => setDrawerAbierto(true)} className="px-6 min-h-[44px] text-white rounded-lg font-bold text-sm transition-transform active:scale-95 shadow-lg focus:ring-2 focus:ring-blue-400 outline-none mx-auto" style={{ background: 'linear-gradient(135deg, var(--color-primary-500), var(--color-primary-600))' }}>
+                      Crear primer trabajador
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ) : (
+              trabajadoresFiltrados.map(t => {
+                const badge = ESTADO_EMO_BADGE[t.estadoEMO];
+                return (
+                  <tr
+                    key={t.id}
+                    className="border-b transition-colors hover:bg-white/5 focus-within:bg-white/5 cursor-pointer group"
+                    style={{ borderColor: 'var(--color-borde)' }}
+                    onClick={() => navigate(`/trabajadores/${t.id}`)}
+                  >
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        {t.fotoUrl ? (
+                          <img src={t.fotoUrl} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
+                        ) : (
+                          <div className="notranslate w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ backgroundColor: 'var(--color-primary-500)', color: 'white', opacity: 0.85 }} aria-hidden="true">
+                            {t.nombreCompleto.split(' ').map(n => n.charAt(0)).slice(0, 2).join('')}
                           </div>
+                        )}
+                        <div>
+                          <span className="font-semibold">{t.nombreCompleto}</span>
+                          <p className="text-xs mt-0.5" style={{ color: 'var(--color-texto-tenue)' }}>DNI: {t.dni}</p>
                         </div>
-                      </td>
-                      <td className="px-5 py-4 font-medium" style={{ color: 'var(--color-texto-secundario)' }}>{t.cargo}</td>
-                      <td className="px-5 py-4" style={{ color: 'var(--color-texto-secundario)' }}>
-                        <span className="flex items-center gap-1.5">
-                          <Building2 className="w-3.5 h-3.5 opacity-50 shrink-0" />
-                          <span className="truncate max-w-[140px]">{t.sucursal?.nombre || '—'}</span>
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-center">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: badge?.bg, color: badge?.color }}>
-                          <Heart className="w-3 h-3 shrink-0" /> {badge?.label}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-center">
-                        <Badge valor={t._count?.entregasEpp || 0} color={(t._count?.entregasEpp || 0) === 0 ? 'red' : 'blue'} />
-                      </td>
-                      <td className="px-5 py-4 text-center">
-                        <Badge valor={t._count?.capacitaciones || 0} color="green" />
-                      </td>
-                      <td className="px-5 py-4 text-center">
-                        <Badge valor={t._count?.amonestaciones || 0} color={(t._count?.amonestaciones || 0) > 0 ? 'red' : 'green'} />
-                      </td>
-                      <td className="px-5 py-4 text-right" onClick={e => e.stopPropagation()}>
-                        <MenuAcciones
-                          onVer={() => navigate(`/trabajadores/${t.id}`)}
-                          onDesactivar={() => manejarDesactivar(t.id, t.nombreCompleto)}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                      </div>
+                    </td>
+                    <td className="px-5 py-4 font-medium" style={{ color: 'var(--color-texto-secundario)' }}>{t.cargo}</td>
+                    <td className="px-5 py-4" style={{ color: 'var(--color-texto-secundario)' }}>
+                      <span className="flex items-center gap-1.5">
+                        <Building2 className="w-3.5 h-3.5 opacity-50 shrink-0" />
+                        <span className="truncate max-w-[140px]">{t.sucursal?.nombre || '—'}</span>
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: badge?.bg, color: badge?.color }}>
+                        <Heart className="w-3 h-3 shrink-0" /> {badge?.label}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      <Badge valor={t._count?.entregasEpp || 0} color={(t._count?.entregasEpp || 0) === 0 ? 'red' : 'blue'} />
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      <Badge valor={t._count?.capacitaciones || 0} color="green" />
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      <Badge valor={t._count?.amonestaciones || 0} color={(t._count?.amonestaciones || 0) > 0 ? 'red' : 'green'} />
+                    </td>
+                    <td className="px-5 py-4 text-right" onClick={e => e.stopPropagation()}>
+                      <MenuAcciones
+                        onVer={() => navigate(`/trabajadores/${t.id}`)}
+                      />
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
 
         {/* Paginación */}
         {!cargando && paginacion.totalPaginas > 1 && (
@@ -518,22 +511,28 @@ export default function PaginaTrabajadores() {
               <button onClick={() => setPagina(p => Math.max(1, p - 1))} disabled={pagina === 1} className="p-2 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-30">
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              {Array.from({ length: Math.min(paginacion.totalPaginas, 5) }, (_, i) => {
-                const p = i + 1;
+              {(() => {
+                let start = Math.max(1, pagina - 2);
+                let end = Math.min(paginacion.totalPaginas, start + 4);
+                if (end - start < 4) start = Math.max(1, end - 4);
                 return (
-                  <button key={p} onClick={() => setPagina(p)} className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${pagina === p ? 'text-white shadow' : 'hover:bg-white/10'}`} style={pagina === p ? { background: 'var(--color-primary-500)' } : {}}>
-                    {p}
-                  </button>
+                  <>
+                    {start > 1 && <span className="px-1 text-xs">...</span>}
+                    {Array.from({ length: end - start + 1 }, (_, i) => start + i).map(p => (
+                      <button key={p} onClick={() => setPagina(p)} className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${pagina === p ? 'text-white shadow scale-105' : 'hover:bg-white/10'}`} style={pagina === p ? { background: 'var(--color-primary-500)' } : {}}>
+                        {p}
+                      </button>
+                    ))}
+                    {end < paginacion.totalPaginas && <span className="px-1 text-xs">...</span>}
+                  </>
                 );
-              })}
-              {paginacion.totalPaginas > 5 && <span className="px-1">…</span>}
+              })()}
               <button onClick={() => setPagina(p => Math.min(paginacion.totalPaginas, p + 1))} disabled={pagina === paginacion.totalPaginas} className="p-2 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-30">
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         )}
-      </div>
 
       {/* ── DRAWER ── */}
       <DrawerTrabajador

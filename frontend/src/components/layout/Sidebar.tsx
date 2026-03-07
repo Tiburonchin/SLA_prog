@@ -19,17 +19,20 @@ import { useState } from 'react';
 
 type RolPermitido = 'COORDINADOR' | 'SUPERVISOR' | 'JEFATURA';
 
-const navegacion: Array<{ nombre: string; ruta: string; icono: any; roles?: RolPermitido[] }> = [
-  { nombre: 'Dashboard', ruta: '/', icono: LayoutDashboard },
-  { nombre: 'Sucursales', ruta: '/sucursales', icono: Building2, roles: ['COORDINADOR', 'SUPERVISOR'] },
-  { nombre: 'Trabajadores', ruta: '/trabajadores', icono: Users, roles: ['COORDINADOR', 'SUPERVISOR'] },
-  { nombre: 'Supervisores', ruta: '/supervisores', icono: HardHat, roles: ['COORDINADOR'] },
-  { nombre: 'Equipos', ruta: '/equipos', icono: Wrench, roles: ['COORDINADOR', 'SUPERVISOR'] },
-  { nombre: 'Matriz IPC', ruta: '/matriz-ipc', icono: Shield, roles: ['COORDINADOR'] },
-  { nombre: 'Escáner QR', ruta: '/escaner', icono: ScanLine, roles: ['COORDINADOR', 'SUPERVISOR'] },
-  { nombre: 'Inspecciones', ruta: '/inspecciones', icono: ClipboardCheck, roles: ['COORDINADOR', 'SUPERVISOR'] },
-  { nombre: 'Amonestaciones', ruta: '/amonestaciones', icono: AlertTriangle, roles: ['COORDINADOR', 'SUPERVISOR'] },
-  { nombre: 'Reportes', ruta: '/reportes', icono: BarChart3 },
+// Grupos de navegación con separador visual
+const navegacion: Array<{ nombre: string; ruta: string; icono: any; roles?: RolPermitido[]; separadorAntes?: boolean }> = [
+  { nombre: 'Dashboard',     ruta: '/',             icono: LayoutDashboard },
+  // ─── Operación de campo ───────────────────────────────────
+  { nombre: 'Escáner QR',    ruta: '/escaner',      icono: ScanLine,       roles: ['COORDINADOR', 'SUPERVISOR'], separadorAntes: true },
+  { nombre: 'Inspecciones',  ruta: '/inspecciones', icono: ClipboardCheck, roles: ['COORDINADOR', 'SUPERVISOR'] },
+  { nombre: 'Amonestaciones',ruta: '/amonestaciones',icono: AlertTriangle,  roles: ['COORDINADOR', 'SUPERVISOR'] },
+  { nombre: 'Trabajadores',  ruta: '/trabajadores', icono: Users,          roles: ['COORDINADOR', 'SUPERVISOR'] },
+  { nombre: 'Equipos',       ruta: '/equipos',      icono: Wrench,         roles: ['COORDINADOR', 'SUPERVISOR'] },
+  // ─── Solo Coordinador ──────────────────────────────────────
+  { nombre: 'Sucursales',    ruta: '/sucursales',   icono: Building2,      roles: ['COORDINADOR'],              separadorAntes: true },
+  { nombre: 'Supervisores',  ruta: '/supervisores', icono: HardHat,        roles: ['COORDINADOR'] },
+  { nombre: 'Matriz IPC',    ruta: '/matriz-ipc',   icono: Shield,         roles: ['COORDINADOR'] },
+  { nombre: 'Reportes',      ruta: '/reportes',     icono: BarChart3,      roles: ['COORDINADOR', 'JEFATURA'] },
 ];
 
 export default function Sidebar() {
@@ -56,7 +59,7 @@ export default function Sidebar() {
         )}
         <button
           onClick={() => setColapsado(!colapsado)}
-          className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+          className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors"
           style={{ color: 'var(--color-texto-secundario)' }}
         >
           {colapsado ? <Menu className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
@@ -64,37 +67,51 @@ export default function Sidebar() {
       </div>
 
       {/* Navegación */}
-      <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
-        {navegacion
-          .filter(item => !item.roles || (usuario?.rol && item.roles.includes(usuario.rol as RolPermitido)))
-          .map((item) => {
-          const activo = item.ruta === '/'
-            ? location.pathname === '/'
-            : location.pathname.startsWith(item.ruta);
-          return (
-            <Link
-              key={item.ruta}
-              to={item.ruta}
-              className={`
-                flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200
-                ${activo
-                  ? 'text-white font-medium'
-                  : 'hover:bg-white/5'
-                }
-              `}
-              style={{
-                backgroundColor: activo ? 'var(--color-primary-600)' : undefined,
-                color: activo ? 'white' : 'var(--color-texto-secundario)',
-              }}
-              title={colapsado ? item.nombre : undefined}
-            >
-              <item.icono className="w-5 h-5 shrink-0" />
-              {!colapsado && (
-                <span className="text-sm animate-fade-in">{item.nombre}</span>
-              )}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 py-4 px-2 overflow-y-auto">
+        {/* Pill de modo supervisor — sólo visible cuando el sidebar está expandido */}
+        {!colapsado && usuario?.rol === 'SUPERVISOR' && (
+          <div className="mx-1 mb-3 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center gap-2">
+            <HardHat className="w-4 h-4 text-amber-400 shrink-0" />
+            <span className="text-xs font-semibold text-amber-300">Modo Supervisor</span>
+          </div>
+        )}
+        <div className="space-y-0.5">
+          {navegacion
+            .filter(item => !item.roles || (usuario?.rol && item.roles.includes(usuario.rol as RolPermitido)))
+            .map((item) => {
+              const activo = item.ruta === '/'
+                ? location.pathname === '/'
+                : location.pathname.startsWith(item.ruta);
+              return (
+                <div key={item.ruta + item.nombre}>
+                  {/* Separador visual de sección */}
+                  {item.separadorAntes && !colapsado && (
+                    <div className="my-2 mx-1 border-t" style={{ borderColor: 'var(--color-borde)' }} />
+                  )}
+                  {item.separadorAntes && colapsado && (
+                    <div className="my-2" />
+                  )}
+                  <Link
+                    to={item.ruta}
+                    className={`
+                      flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200
+                      ${activo ? 'text-white font-medium' : 'hover:bg-white/5'}
+                    `}
+                    style={{
+                      backgroundColor: activo ? 'var(--color-primary-600)' : undefined,
+                      color: activo ? 'white' : 'var(--color-texto-secundario)',
+                    }}
+                    title={colapsado ? item.nombre : undefined}
+                  >
+                    <item.icono className="w-5 h-5 shrink-0" />
+                    {!colapsado && (
+                      <span className="text-sm animate-fade-in">{item.nombre}</span>
+                    )}
+                  </Link>
+                </div>
+              );
+          })}
+        </div>
       </nav>
 
       {/* Pie: usuario y logout */}

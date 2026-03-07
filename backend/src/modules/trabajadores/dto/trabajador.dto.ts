@@ -1,6 +1,6 @@
 import { IsString, IsNotEmpty, IsOptional, IsEnum, IsUUID } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { EstadoSalud } from '@prisma/client';
+import { EstadoEMO, EstadoLaboral } from '@prisma/client';
 
 export class CrearTrabajadorDto {
   @IsString()
@@ -30,8 +30,14 @@ export class CrearTrabajadorDto {
   @IsOptional() @IsString()
   contactoEmergencia?: string;
 
-  @IsOptional() @IsEnum(EstadoSalud)
-  estadoSalud?: EstadoSalud;
+  @IsOptional() @IsEnum(EstadoEMO)
+  estadoEMO?: EstadoEMO;
+
+  @IsOptional() @IsEnum(EstadoLaboral)
+  estadoLaboral?: EstadoLaboral;
+
+  @IsOptional() @IsString()
+  fechaVencimientoEMO?: string;
 
   @IsOptional() @IsString()
   tallaCasco?: string;
@@ -52,7 +58,7 @@ export class CrearTrabajadorDto {
   fotoBase64?: string;
 
   @IsOptional() @IsString()
-  alergias?: string;
+  alergiasCriticas?: string;
 
   @IsOptional() @IsString()
   condicionesPreexistentes?: string;
@@ -110,8 +116,14 @@ export class ActualizarTrabajadorDto {
   @IsOptional() @IsString()
   contactoEmergencia?: string;
 
-  @IsOptional() @IsEnum(EstadoSalud)
-  estadoSalud?: EstadoSalud;
+  @IsOptional() @IsEnum(EstadoEMO)
+  estadoEMO?: EstadoEMO;
+
+  @IsOptional() @IsEnum(EstadoLaboral)
+  estadoLaboral?: EstadoLaboral;
+
+  @IsOptional() @IsString()
+  fechaVencimientoEMO?: string;
 
   @IsOptional() @IsString()
   tallaCasco?: string;
@@ -132,7 +144,7 @@ export class ActualizarTrabajadorDto {
   fotoBase64?: string;
 
   @IsOptional() @IsString()
-  alergias?: string;
+  alergiasCriticas?: string;
 
   @IsOptional() @IsString()
   condicionesPreexistentes?: string;

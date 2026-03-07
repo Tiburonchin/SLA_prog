@@ -50,6 +50,13 @@ Se auditaron los 10 controladores NestJS del sistema. **No se encontraron brecha
 - ✅ Parámetros UUID validados con `ParseUUIDPipe`.
 - ✅ Protecciones IDOR activas en servicios de Inspecciones y Amonestaciones.
 
+### Parches Adicionales Anti-IDOR en Trabajadores (2026-03-06)
+
+Se encontraron vulnerabilidades operacionales en el módulo de Trabajadores en la Fase 3 y 4 de la auditoría:
+
+- **IDOR Patcheado:** Supervisores podían acceder a la base de datos de trabajadores de sucursales fuera de su jurisdicción oficial. Se implementaron helper methods rigurosos (`validarJurisdiccion` y `verificarAccesoTrabajador` en `TrabajadoresService`) que atrapan y expulsan accesos ilícitos pasándole el request del controlador con un `403 Forbidden`. En el endpoint de listado global, los resultados ahora se pre-filtran explícitamente (`in: sucursalesPermitidas`).
+- **Loose Endpoints Cerrados:** El endpoint público y redundante `GET /api/trabajadores/estadisticas`, que exponía recuentos a todo usuario autenticado pero era ignorado por el Frontend, fue eliminado permanentemente.
+
 ---
 
 ## Cómo Escalar

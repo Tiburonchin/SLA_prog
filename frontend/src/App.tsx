@@ -12,6 +12,7 @@ import PaginaDetalleEquipo from './pages/equipos/PaginaDetalleEquipo';
 import PaginaSupervisores from './pages/supervisores/PaginaSupervisores';
 import PaginaDetalleSupervisor from './pages/supervisores/PaginaDetalleSupervisor';
 import PaginaSucursales from './pages/sucursales/PaginaSucursales';
+import PaginaDetalleSucursal from './pages/sucursales/PaginaDetalleSucursal';
 import PaginaMatrizIpc from './pages/matriz-ipc/PaginaMatrizIpc';
 import PaginaEscanerQr from './pages/escaner/PaginaEscanerQr';
 import PaginaAmonestaciones from './pages/amonestaciones/PaginaAmonestaciones';
@@ -52,6 +53,7 @@ export default function App() {
 
             {/* Sucursales (Solo Coordinador en el backend, pero pueden ver lista) */}
             <Route path="/sucursales" element={<PaginaSucursales />} />
+            <Route path="/sucursales/:id" element={<PaginaDetalleSucursal />} />
 
             {/* Lector QR */}
             <Route path="/escaner" element={<PaginaEscanerQr />} />

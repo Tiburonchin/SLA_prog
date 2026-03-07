@@ -1,4 +1,5 @@
 // ===== Esquema de Base de Datos — Sistema HSE =====
+// Versión 3.0 — Sucursal expandida: SUNAFIL / INDECI / Ley 29783
 // Cada modelo y campo está documentado en español
 
 generator client {
@@ -12,15 +13,28 @@ datasource db {
 // ===== ENUMS =====
 
 enum Rol {
-  COORDINADOR  // Administrador del sistema HSE
-  SUPERVISOR   // Usuario de campo
-  JEFATURA     // Solo lectura, dashboards
+  COORDINADOR // Administrador del sistema HSE
+  SUPERVISOR // Usuario de campo
+  JEFATURA // Solo lectura, dashboards
 }
 
-enum EstadoSalud {
+enum EstadoLaboral {
+  ACTIVO
+  CESADO
+}
+
+enum EstadoEMO {
   APTO
   NO_APTO
-  APTO_CON_RESTRICCIONES
+  APTO_RESTRICCION
+}
+
+/// FASE 2: Tipo de examen médico para el historial EMO normalizado
+enum TipoExamenMedico {
+  INGRESO // Examen al ingresar a la empresa
+  PERIODICO // Examen de control anual
+  RETIRO // Examen al cesar relación laboral
+  REINTEGRO // Examen al reincorporarse de incapacidad
 }
 
 enum EstadoEquipo {
@@ -41,108 +55,227 @@ enum EstadoInspeccion {
   CANCELADA
 }
 
+/// Tipo de instalación según clasificación INDECI / Ley 29783
+enum TipoInstalacion {
+  OFICINA
+  PLANTA_INDUSTRIAL
+  ALMACEN
+  LABORATORIO
+  OBRA
+}
+
+/// Nivel de riesgo operacional / SST de la sede
+enum NivelRiesgo {
+  BAJO
+  MEDIO
+  ALTO
+  CRITICO
+}
+
+/// Categoría de riesgo de incendio (NFPA / NTP 350.043)
+enum CategoriaIncendio {
+  BAJO
+  ORDINARIO
+  ALTO
+}
+
+/// Resultado de la última inspección SUNAFIL
+enum ResultadoInspeccionSUNAFIL {
+  CONFORME // Sin observaciones
+  OBSERVADO // Con observaciones subsanables
+  NO_CONFORME // Incumplimiento formal
+  SANCIONADO // Multa / medida cautelar impuesta
+}
+
 // ===== USUARIOS DEL SISTEMA =====
 
 model Usuario {
-  id              String   @id @default(uuid())
-  correo          String   @unique
-  contrasena      String   // Hash bcrypt
-  nombreCompleto  String
-  rol             Rol
-  activo          Boolean  @default(true)
-  creadoEn        DateTime @default(now())
-  actualizadoEn   DateTime @updatedAt
+  id             String    @id @default(uuid())
+  correo         String    @unique
+  contrasena     String // Hash bcrypt
+  nombreCompleto String
+  rol            Rol
+  activo         Boolean   @default(true)
+  creadoEn       DateTime  @default(now())
+  actualizadoEn  DateTime  @updatedAt
+  // FASE 1 — Soft-Delete: permite auditoría SUNAFIL sin pérdida de historial
+  deletedAt      DateTime? // null = activo | fecha = eliminado lógicamente
 
   // Relaciones
-  supervisor      Supervisor?
-  registrosAudit  RegistroAuditoria[]
-  notificaciones  Notificacion[]
+  supervisor     Supervisor?
+  registrosAudit RegistroAuditoria[]
+  notificaciones Notificacion[]
 
+  @@index([activo])
+  @@index([deletedAt])
   @@map("usuarios")
 }
 
 // ===== MÓDULO 1: BASE DE DATOS MAESTRA =====
 
 model Sucursal {
-  id          String   @id @default(uuid())
-  nombre      String   @unique
-  direccion   String?
-  latitud     Float?
-  longitud    Float?
-  activa      Boolean  @default(true)
-  creadoEn    DateTime @default(now())
-  actualizadoEn DateTime @updatedAt
+  id            String    @id @default(uuid())
+  nombre        String    @unique
+  direccion     String?
+  latitud       Float?
+  longitud      Float?
+  activa        Boolean   @default(true)
+  creadoEn      DateTime  @default(now())
+  actualizadoEn DateTime  @updatedAt
+  // Soft-Delete: sede dada de baja lógicamente, historial preservado
+  deletedAt     DateTime?
+
+  // ─── CLASIFICACIÓN DE LA INSTALACIÓN (INDECI / Ley 29783) ───────────────
+  tipoInstalacion   TipoInstalacion? // Tipo de establecimiento
+  nivelRiesgo       NivelRiesgo? // Nivel de riesgo SST declarado
+  categoriaIncendio CategoriaIncendio? // Riesgo de incendio NFPA
+
+  // ─── DATOS LEGALES Y REGISTROS OBLIGATORIOS ──────────────────────────────
+  // Clasificación Industrial Internacional Uniforme (SBS / SUNAT)
+  codigoCIIU                  String?
+  // Código de establecimiento en el Registro Nacional INDECI
+  codigoEstablecimientoINDECI String?   @unique
+  // N° de Certificado de Inspección de Defensa Civil
+  numeroCertificadoDC         String?
+  vencimientoCertificadoDC    DateTime? // Fecha de vencimiento del certificado DC
+  fechaProximaRevisionDC      DateTime? // Próxima revisión programada
+
+  // ─── INFRAESTRUCTURA FÍSICA ───────────────────────────────────────────────
+  aforoMaximo       Int? // Capacidad máxima de personas (INDECI)
+  areaM2            Float? // Área total del establecimiento en m²
+  numeroPisos       Int? // Número de pisos / niveles
+  anioConstruccion  Int? // Año de construcción (evaluación sísmica)
+  zonaRiesgoSismico Int? // Zona sísmica 1-4 según NTE E.030
+
+  // ─── GESTIÓN DE EMERGENCIAS (Ley 29783 Art. 34) ──────────────────────────
+  // Responsable SST de la sede
+  responsableSSTNombre    String?
+  responsableSSTTelefono  String?
+  // Servicio médico
+  medicoOcupacionalNombre String?
+  centroMedicoMasCercano  String?
+  telefonoCentroMedico    String?
+  // Equipamiento de emergencias
+  cantidadExtintores      Int?    @default(0)
+  tieneDesfibriladorDEA   Boolean @default(false)
+  ubicacionDEA            String? // Descripción de la ubicación del DEA
+  cantidadBotiquines      Int?    @default(0)
+  tieneEnfermeria         Boolean @default(false)
+  telefonoEmergenciasSede String? // Línea directa de emergencias de la sede
+
+  // ─── PLAN DE EMERGENCIA Y SIMULACROS ─────────────────────────────────────
+  planEmergenciaVigente          Boolean   @default(false)
+  fechaVencimientoPlanEmergencia DateTime?
+  fechaUltimoSimulacro           DateTime?
+  cantidadSimulacrosAnio         Int?      @default(0)
+
+  // ─── BRIGADAS Y PELIGROS (JSONB) ─────────────────────────────────────────
+  // Estructura ejemplo brigadasEmergencia:
+  // [{"tipo":"Evacuación","jefe":"Juan Pérez","miembros":4,"certificado":true}]
+  brigadasEmergencia    Json? // JSONB: Array de brigadas con roles y certificaciones
+  // Estructura ejemplo peligrosIdentificados:
+  // [{"tipo":"Eléctrico","nivel":"ALTO","zona":"Sala de servidores","control":"Extintores CO2"}]
+  peligrosIdentificados Json? // JSONB: Mapa de peligros identificados por zona
+
+  // ─── TRAZABILIDAD SUNAFIL ─────────────────────────────────────────────────
+  fechaUltimaInspeccionSUNAFIL DateTime?
+  resultadoUltimaInspeccion    ResultadoInspeccionSUNAFIL?
+  observacionesLegalesActivas  String? // Observaciones / multas pendientes de subsanar
 
   // Relaciones
-  trabajadores    Trabajador[]
-  supervisores    SupervisorSucursal[]
-  inspecciones    Inspeccion[]
-  amonestaciones  Amonestacion[]
+  trabajadores   Trabajador[]
+  supervisores   SupervisorSucursal[]
+  inspecciones   Inspeccion[]
+  amonestaciones Amonestacion[]
 
+  // Índices B-tree para alertas diarias y dashboards legales
+  @@index([activa])
+  @@index([deletedAt])
+  @@index([tipoInstalacion])
+  @@index([nivelRiesgo])
+  @@index([vencimientoCertificadoDC]) // Alerta: certificados DC próximos a vencer
+  @@index([fechaProximaRevisionDC]) // Alerta: revisiones DC programadas
+  @@index([resultadoUltimaInspeccion]) // Dashboard: sedes con observaciones SUNAFIL
+  @@index([planEmergenciaVigente])
   @@map("sucursales")
 }
 
 model Trabajador {
-  id                  String       @id @default(uuid())
-  dni                 String       @unique
-  nombreCompleto      String
-  cargo               String
-  tipoSangre          String?
-  telefonoEmergencia  String?
-  contactoEmergencia  String?
-  estadoSalud         EstadoSalud  @default(APTO)
-  
+  id                 String  @id @default(uuid())
+  dni                String  @unique // Indexed por @unique — clave de búsqueda QR
+  nombreCompleto     String
+  cargo              String
+  tipoSangre         String?
+  telefonoEmergencia String?
+  contactoEmergencia String?
+
+  // FASE 2 — Cache del último estado EMO (actualizado por trigger de negocio)
+  // El historial completo vive en ExamenMedico
+  estadoEMO           EstadoEMO     @default(APTO)
+  fechaVencimientoEMO DateTime?
+  estadoLaboral       EstadoLaboral @default(ACTIVO)
+
   // Tallas de EPP
-  tallaCasco          String?
-  tallaCamisa         String?
-  tallaPantalon       String?
-  tallaCalzado        String?
-  tallaGuantes        String?
+  tallaCasco    String?
+  tallaCamisa   String?
+  tallaPantalon String?
+  tallaCalzado  String?
+  tallaGuantes  String?
 
   // Código QR único
-  codigoQr            String?      @unique
+  codigoQr String? @unique
 
   // Foto de perfil (URL o Base64 Data URI)
-  fotoUrl             String?
+  fotoUrl String?
 
-  // Datos médicos expandidos
-  alergias                String?
+  // Datos médicos de acceso rápido (escáner QR emergencias)
+  alergiasCriticas         String?
   condicionesPreexistentes String?
-  eps                     String?   // Entidad Prestadora de Salud
-  arl                     String?   // Administradora de Riesgos Laborales
-  fechaUltimoExamen       DateTime?
+  eps                      String? // Entidad Prestadora de Salud
+  arl                      String? // Administradora de Riesgos Laborales
+  fechaUltimoExamen        DateTime?
 
   // Datos auxiliares del trabajador
-  fechaIngreso            DateTime?  // Fecha de ingreso a la empresa
-  fechaNacimiento         DateTime?  // Para verificación de edad en roles de riesgo
-  curp                    String?    // Clave Única de Registro de Población
-  nss                     String?    // Número de Seguro Social (IMSS)
-  telefono                String?    // Teléfono personal
-  correo                  String?    // Correo electrónico personal
-  turno                   String?    // DIURNO, NOCTURNO, MIXTO
-  nivelEducativo          String?    // PRIMARIA, SECUNDARIA, PREPARATORIA, UNIVERSIDAD, POSGRADO
+  fechaIngreso    DateTime?
+  fechaNacimiento DateTime?
+  curp            String?
+  nss             String?
+  telefono        String?
+  correo          String?
+  turno           String?
+  nivelEducativo  String?
 
-  sucursalId          String
-  activo              Boolean      @default(true)
-  creadoEn            DateTime     @default(now())
-  actualizadoEn       DateTime     @updatedAt
+  sucursalId    String
+  activo        Boolean   @default(true)
+  creadoEn      DateTime  @default(now())
+  actualizadoEn DateTime  @updatedAt
+  // FASE 1 — Soft-Delete: historial laboral protegido para SUNAFIL
+  deletedAt     DateTime?
 
   // Relaciones
-  sucursal            Sucursal           @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
-  entregasEpp         EntregaEpp[]
-  capacitaciones      Capacitacion[]
-  amonestaciones      Amonestacion[]
-  incidentes          Incidente[]
-  inspecciones        InspeccionTrabajador[]
+  sucursal        Sucursal               @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  entregasEpp     EntregaEpp[]
+  capacitaciones  Capacitacion[]
+  amonestaciones  Amonestacion[]
+  incidentes      Incidente[]
+  inspecciones    InspeccionTrabajador[]
+  // FASE 2 — Historial médico normalizado (uno-a-muchos)
+  examenesMedicos ExamenMedico[]
 
+  // FASE 2 — Índices para búsqueda rápida en escáner QR de emergencias
+  @@index([sucursalId])
+  @@index([estadoLaboral])
+  @@index([tipoSangre]) // Emergencias: filtro rápido por tipo de sangre
+  @@index([activo])
+  @@index([deletedAt])
   @@map("trabajadores")
 }
 
 model Supervisor {
-  id          String   @id @default(uuid())
-  usuarioId   String   @unique
-  telefono    String?
-  creadoEn    DateTime @default(now())
+  id            String   @id @default(uuid())
+  usuarioId     String   @unique
+  telefono      String?
+  creadoEn      DateTime @default(now())
   actualizadoEn DateTime @updatedAt
 
   // Relaciones
@@ -155,47 +288,51 @@ model Supervisor {
 }
 
 model SupervisorSucursal {
-  id           String   @id @default(uuid())
+  id           String @id @default(uuid())
   supervisorId String
   sucursalId   String
 
-  supervisor   Supervisor @relation(fields: [supervisorId], references: [id], onDelete: Cascade)
-  sucursal     Sucursal   @relation(fields: [sucursalId], references: [id], onDelete: Cascade)
+  supervisor Supervisor @relation(fields: [supervisorId], references: [id], onDelete: Cascade)
+  sucursal   Sucursal   @relation(fields: [sucursalId], references: [id], onDelete: Cascade)
 
   @@unique([supervisorId, sucursalId])
   @@map("supervisor_sucursal")
 }
 
 model Equipo {
-  id              String       @id @default(uuid())
-  nombre          String
-  marca           String?
-  modelo          String?
-  numeroSerie     String       @unique
-  nfcTagId        String?      @unique
-  estado          EstadoEquipo @default(OPERATIVO)
-  descripcion     String?
-  manualUrl       String?      // Ruta al manual técnico adjunto
-  creadoEn        DateTime     @default(now())
-  actualizadoEn   DateTime     @updatedAt
+  id            String       @id @default(uuid())
+  nombre        String
+  marca         String?
+  modelo        String?
+  numeroSerie   String       @unique
+  nfcTagId      String?      @unique
+  estado        EstadoEquipo @default(OPERATIVO)
+  descripcion   String?
+  manualUrl     String?
+  creadoEn      DateTime     @default(now())
+  actualizadoEn DateTime     @updatedAt
+  // FASE 1 — Soft-Delete: el equipo dado de baja mantiene historial de calibraciones
+  deletedAt     DateTime?
 
   // Relaciones
-  calibraciones   Calibracion[]
+  calibraciones Calibracion[]
 
+  @@index([estado])
+  @@index([deletedAt])
   @@map("equipos")
 }
 
 model Calibracion {
-  id                      String   @id @default(uuid())
-  equipoId                String
-  fechaCalibracion        DateTime
-  proximaCalibracion      DateTime
-  certificadoUrl          String?  // Ruta al certificado
-  observaciones           String?
-  creadoEn                DateTime @default(now())
+  id                 String   @id @default(uuid())
+  equipoId           String
+  fechaCalibracion   DateTime
+  proximaCalibracion DateTime
+  certificadoUrl     String? // Ruta al certificado
+  observaciones      String?
+  creadoEn           DateTime @default(now())
 
   // Relaciones
-  equipo                  Equipo   @relation(fields: [equipoId], references: [id], onDelete: Restrict) // SEC: Historial de calibraciones es inmutable
+  equipo Equipo @relation(fields: [equipoId], references: [id], onDelete: Restrict) // SEC: Historial de calibraciones es inmutable
 
   @@map("calibraciones")
 }
@@ -203,53 +340,87 @@ model Calibracion {
 // ===== MATRIZ IPC =====
 
 model MatrizIpc {
-  id                    String   @id @default(uuid())
-  cargo                 String
-  ubicacion             String
-  eppsObligatorios      Json     // JSONB: Array de EPPs requeridos
-  herramientasRequeridas Json    // JSONB: Array de herramientas
-  capacitacionesRequeridas Json  // JSONB: Array de capacitaciones
-  descripcion           String?
-  activo                Boolean  @default(true)
-  creadoEn              DateTime @default(now())
-  actualizadoEn         DateTime @updatedAt
+  id                       String   @id @default(uuid())
+  cargo                    String
+  ubicacion                String
+  eppsObligatorios         Json // JSONB: Array de EPPs requeridos
+  herramientasRequeridas   Json // JSONB: Array de herramientas
+  capacitacionesRequeridas Json // JSONB: Array de capacitaciones
+  descripcion              String?
+  activo                   Boolean  @default(true)
+  creadoEn                 DateTime @default(now())
+  actualizadoEn            DateTime @updatedAt
 
   @@unique([cargo, ubicacion])
+  @@index([cargo]) // Búsqueda por puesto de trabajo
+  @@index([activo])
+  // FASE 3 — GIN indexes sobre JSONB (eppsObligatorios, herramientasRequeridas,
+  // capacitacionesRequeridas) aplicados vía SQL raw en la migración:
+  // CREATE INDEX idx_matriz_epps_gin ON matriz_ipc USING gin("eppsObligatorios");
+  // CREATE INDEX idx_matriz_herramientas_gin ON matriz_ipc USING gin("herramientasRequeridas");
+  // CREATE INDEX idx_matriz_capacitaciones_gin ON matriz_ipc USING gin("capacitacionesRequeridas");
   @@map("matriz_ipc")
 }
 
 // ===== MÓDULO 2: PERFIL 360° (ENTREGAS Y CAPACITACIONES) =====
 
+// FASE 2 — Tabla normalizada de Exámenes Médicos Ocupacionales (EMO)
+// Permite historial completo de aptitudes a lo largo de los años.
+// El campo estadoEMO/fechaVencimientoEMO en Trabajador funciona como cache.
+model ExamenMedico {
+  id                 String           @id @default(uuid())
+  trabajadorId       String
+  tipoExamen         TipoExamenMedico
+  fechaExamen        DateTime
+  estado             EstadoEMO
+  restricciones      String? // Ej: "No trabajo en altura por 6 meses"
+  observaciones      String?
+  medicoEvaluador    String?
+  institucion        String? // Clínica o centro de salud
+  documentoUrl       String? // URL al certificado/informe médico
+  proximoVencimiento DateTime? // Fecha del próximo examen requerido
+  creadoEn           DateTime         @default(now())
+
+  // Relaciones — onDelete Restrict: historial médico es prueba legal inmutable
+  trabajador Trabajador @relation(fields: [trabajadorId], references: [id], onDelete: Restrict)
+
+  @@index([trabajadorId])
+  @@index([fechaExamen])
+  @@index([estado])
+  @@index([proximoVencimiento]) // Para alertas de vencimiento próximo
+  @@map("examenes_medicos")
+}
+
 model EntregaEpp {
-  id              String   @id @default(uuid())
-  trabajadorId    String
-  tipoEpp         String   // Ej: "Casco dieléctrico", "Arnés"
-  marca           String?
-  talla           String?
-  fechaEntrega    DateTime
+  id               String    @id @default(uuid())
+  trabajadorId     String
+  tipoEpp          String // Ej: "Casco dieléctrico", "Arnés"
+  marca            String?
+  talla            String?
+  fechaEntrega     DateTime
   fechaVencimiento DateTime?
-  observaciones   String?
-  creadoEn        DateTime @default(now())
+  observaciones    String?
+  creadoEn         DateTime  @default(now())
 
   // Relaciones
-  trabajador      Trabajador @relation(fields: [trabajadorId], references: [id], onDelete: Restrict) // SEC: Historial de EPP es inmutable (Expediente 360°)
+  trabajador Trabajador @relation(fields: [trabajadorId], references: [id], onDelete: Restrict) // SEC: Historial de EPP es inmutable (Expediente 360°)
 
   @@map("entregas_epp")
 }
 
 model Capacitacion {
-  id                String   @id @default(uuid())
-  trabajadorId      String
-  nombreCurso       String   // Ej: "Trabajo en altura", "Riesgo eléctrico"
-  institucion       String?
-  fechaRealizacion  DateTime
-  fechaVencimiento  DateTime?
-  certificadoUrl    String?
-  vigente           Boolean  @default(true)
-  creadoEn          DateTime @default(now())
+  id               String    @id @default(uuid())
+  trabajadorId     String
+  nombreCurso      String // Ej: "Trabajo en altura", "Riesgo eléctrico"
+  institucion      String?
+  fechaRealizacion DateTime
+  fechaVencimiento DateTime?
+  certificadoUrl   String?
+  vigente          Boolean   @default(true)
+  creadoEn         DateTime  @default(now())
 
   // Relaciones
-  trabajador        Trabajador @relation(fields: [trabajadorId], references: [id], onDelete: Restrict) // SEC: Certificaciones son inmutables (Expediente 360°)
+  trabajador Trabajador @relation(fields: [trabajadorId], references: [id], onDelete: Restrict) // SEC: Certificaciones son inmutables (Expediente 360°)
 
   @@map("capacitaciones")
 }
@@ -257,58 +428,63 @@ model Capacitacion {
 // ===== MÓDULO 3: INSPECCIONES =====
 
 model Inspeccion {
-  id              String            @id @default(uuid())
-  supervisorId    String
-  sucursalId      String
-  ubicacion       String            // Zona específica del trabajo
-  tipoTrabajo     String            // Ej: "Trabajo en Altura", "Excavación"
-  estado          EstadoInspeccion   @default(EN_PROGRESO)
-  
+  id           String           @id @default(uuid())
+  supervisorId String
+  sucursalId   String
+  ubicacion    String // Zona específica del trabajo
+  tipoTrabajo  String // Ej: "Trabajo en Altura", "Excavación"
+  estado       EstadoInspeccion @default(EN_PROGRESO)
+
   // Checklist dinámico generado desde la Matriz IPC
-  checklist       Json              // JSONB: items del checklist con sus estados
-  observaciones   String?
-  
+  checklist     Json // JSONB: items del checklist con sus estados
+  observaciones String?
+
   // Cierre
-  firmaSupervisor Boolean           @default(false)
-  firmaBase64     String?           // Almacena la imagen base64 de la firma
+  firmaSupervisor Boolean   @default(false)
+  firmaBase64     String? // Almacena la imagen base64 de la firma
   latitudCierre   Float?
   longitudCierre  Float?
   fechaCierre     DateTime?
 
-  creadoEn        DateTime          @default(now())
-  actualizadoEn   DateTime          @updatedAt
+  creadoEn      DateTime  @default(now())
+  actualizadoEn DateTime  @updatedAt
+  // FASE 1 — Soft-Delete: el acta de inspección es un documento legal firmado.
+  // Nunca se elimina físicamente; se marca como anulada con fecha y motivo en `observaciones`.
+  deletedAt     DateTime?
 
   // Relaciones
-  supervisor      Supervisor         @relation(fields: [supervisorId], references: [id], onDelete: Restrict)
-  sucursal        Sucursal           @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
-  fotos           FotoInspeccion[]
-  trabajadores    InspeccionTrabajador[]
+  supervisor   Supervisor             @relation(fields: [supervisorId], references: [id], onDelete: Restrict)
+  sucursal     Sucursal               @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  fotos        FotoInspeccion[]
+  trabajadores InspeccionTrabajador[]
 
+  @@index([estado])
+  @@index([deletedAt])
   @@map("inspecciones")
 }
 
 model InspeccionTrabajador {
-  id              String   @id @default(uuid())
-  inspeccionId    String
-  trabajadorId    String
+  id           String @id @default(uuid())
+  inspeccionId String
+  trabajadorId String
 
-  inspeccion      Inspeccion  @relation(fields: [inspeccionId], references: [id], onDelete: Cascade)
-  trabajador      Trabajador  @relation(fields: [trabajadorId], references: [id], onDelete: Restrict)
+  inspeccion Inspeccion @relation(fields: [inspeccionId], references: [id], onDelete: Cascade)
+  trabajador Trabajador @relation(fields: [trabajadorId], references: [id], onDelete: Restrict)
 
   @@unique([inspeccionId, trabajadorId])
   @@map("inspeccion_trabajador")
 }
 
 model FotoInspeccion {
-  id              String   @id @default(uuid())
-  inspeccionId    String
-  rutaArchivo     String
-  descripcion     String?
-  fechaCaptura    DateTime @default(now())
-  metadatos       Json?    // JSONB: fecha, hora, dispositivo
+  id           String   @id @default(uuid())
+  inspeccionId String
+  rutaArchivo  String
+  descripcion  String?
+  fechaCaptura DateTime @default(now())
+  metadatos    Json? // JSONB: fecha, hora, dispositivo
 
   // Relaciones
-  inspeccion      Inspeccion @relation(fields: [inspeccionId], references: [id], onDelete: Cascade)
+  inspeccion Inspeccion @relation(fields: [inspeccionId], references: [id], onDelete: Cascade)
 
   @@map("fotos_inspeccion")
 }
@@ -316,81 +492,97 @@ model FotoInspeccion {
 // ===== MÓDULO 4: AMONESTACIONES E INCIDENTES =====
 
 model Amonestacion {
-  id              String          @id @default(uuid())
-  trabajadorId    String
-  supervisorId    String
-  sucursalId      String
-  
-  motivo          String          // Ej: "No uso de EPP", "Acto inseguro"
-  severidad       SeveridadFalta
-  descripcion     String          // Relatoría de los hechos
-  testimonios     String?         // Testimonios breves
-  
-  fechaEvento     DateTime
-  creadoEn        DateTime        @default(now())
-  actualizadoEn   DateTime        @updatedAt
+  id           String @id @default(uuid())
+  trabajadorId String
+  supervisorId String
+  sucursalId   String
+
+  motivo      String // Ej: "No uso de EPP", "Acto inseguro"
+  severidad   SeveridadFalta
+  descripcion String // Relatoría de los hechos
+  testimonios String? // Testimonios breves
+
+  fechaEvento   DateTime
+  creadoEn      DateTime  @default(now())
+  actualizadoEn DateTime  @updatedAt
+  // FASE 1 — Soft-Delete: sanción disciplinaria con valor jurídico ante SUNAFIL.
+  // La amonestación nunca desaparece del sistema; solo se anula lógicamente.
+  deletedAt     DateTime?
 
   // Relaciones
-  trabajador      Trabajador      @relation(fields: [trabajadorId], references: [id], onDelete: Restrict)
-  supervisor      Supervisor      @relation(fields: [supervisorId], references: [id], onDelete: Restrict)
-  sucursal        Sucursal        @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
-  fotos           FotoAmonestacion[]
-  incidentes      Incidente[]
+  trabajador Trabajador         @relation(fields: [trabajadorId], references: [id], onDelete: Restrict)
+  supervisor Supervisor         @relation(fields: [supervisorId], references: [id], onDelete: Restrict)
+  sucursal   Sucursal           @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  fotos      FotoAmonestacion[]
+  incidentes Incidente[]
 
+  @@index([trabajadorId])
+  @@index([severidad])
+  @@index([deletedAt])
   @@map("amonestaciones")
 }
 
 model FotoAmonestacion {
-  id              String   @id @default(uuid())
-  amonestacionId  String
-  rutaArchivo     String
-  descripcion     String?
-  fechaCaptura    DateTime @default(now())
+  id             String   @id @default(uuid())
+  amonestacionId String
+  rutaArchivo    String
+  descripcion    String?
+  fechaCaptura   DateTime @default(now())
 
   // Relaciones
-  amonestacion    Amonestacion @relation(fields: [amonestacionId], references: [id], onDelete: Cascade)
+  amonestacion Amonestacion @relation(fields: [amonestacionId], references: [id], onDelete: Cascade)
 
   @@map("fotos_amonestacion")
 }
 
 model Incidente {
-  id              String   @id @default(uuid())
-  trabajadorId    String
-  amonestacionId  String?
-  descripcion     String
-  ubicacion       String?
-  fechaEvento     DateTime
-  creadoEn        DateTime @default(now())
+  id             String    @id @default(uuid())
+  trabajadorId   String
+  amonestacionId String?
+  descripcion    String
+  ubicacion      String?
+  fechaEvento    DateTime
+  creadoEn       DateTime  @default(now())
+  // FASE 1 — Soft-Delete: reporte de accidente/incidente obligatorio por Ley 29783.
+  // Su eliminación física está prohibida; solo se puede anular con justificación.
+  deletedAt      DateTime?
 
   // Relaciones
-  trabajador      Trabajador    @relation(fields: [trabajadorId], references: [id], onDelete: Restrict)
-  amonestacion    Amonestacion? @relation(fields: [amonestacionId], references: [id], onDelete: SetNull)
+  trabajador   Trabajador    @relation(fields: [trabajadorId], references: [id], onDelete: Restrict)
+  amonestacion Amonestacion? @relation(fields: [amonestacionId], references: [id], onDelete: SetNull)
 
+  @@index([trabajadorId])
+  @@index([fechaEvento])
+  @@index([deletedAt])
   @@map("incidentes")
 }
 
 // ===== MÓDULO 5: AUDIT LOG Y NOTIFICACIONES =====
 
 model RegistroAuditoria {
-  id          String   @id @default(uuid())
-  usuarioId   String
-  accion      String   // Ej: "CREAR_TRABAJADOR", "EDITAR_INSPECCION"
-  entidad     String   // Ej: "Trabajador", "Inspeccion"
-  entidadId   String?
-  detalles    Json?    // JSONB: datos adicionales del cambio
-  ip          String?
-  creadoEn    DateTime @default(now())
+  id        String   @id @default(uuid())
+  usuarioId String
+  accion    String // Ej: "CREAR_TRABAJADOR", "EDITAR_INSPECCION"
+  entidad   String // Ej: "Trabajador", "Inspeccion"
+  entidadId String?
+  detalles  Json? // JSONB: datos adicionales del cambio
+  ip        String?
+  creadoEn  DateTime @default(now())
 
   // Relaciones
-  usuario     Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Restrict) // SEC: Audit Trail inmutable (Trazabilidad Absoluta PRD §5)
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict) // SEC: Audit Trail inmutable (Trazabilidad Absoluta PRD §5)
 
+  // FASE 3 — Índices para consultas rápidas de audit trail y dashboard
+  @@index([usuarioId])
+  @@index([entidad, entidadId]) // Filtro: todos los cambios de un registro específico
+  @@index([creadoEn]) // Para particionamiento lógico por mes en el dashboard
   @@map("registros_auditoria")
 }
 
 model Notificacion {
   id              String   @id @default(uuid())
   destinatarioId  String
-  tipo            String   // Ej: "FALTA_CRITICA", "VENCIMIENTO_CALIBRACION"
+  tipo            String // Ej: "FALTA_CRITICA", "VENCIMIENTO_CALIBRACION"
   titulo          String
   mensaje         String
   leida           Boolean  @default(false)
@@ -398,7 +590,7 @@ model Notificacion {
   creadoEn        DateTime @default(now())
 
   // Relaciones
-  destinatario    Usuario  @relation(fields: [destinatarioId], references: [id], onDelete: Cascade)
+  destinatario Usuario @relation(fields: [destinatarioId], references: [id], onDelete: Cascade)
 
   @@map("notificaciones")
 }

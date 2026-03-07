@@ -1,13 +1,49 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Building2, Search, Plus, Edit2, Trash2, MapPin,
-  MoreVertical, X, Check, ChevronDown, ChevronUp,
-  Users, ClipboardCheck, AlertTriangle, Shield,
-  ExternalLink, Download, ArrowRight,
+  MoreVertical, X, Check,
+  Users, ClipboardCheck, AlertTriangle, Shield, ShieldCheck, ShieldAlert,
+  ExternalLink, Download, ArrowRight, ChevronRight,
 } from 'lucide-react';
 import { sucursalesService } from '../../services/trabajadores.service';
-import type { Sucursal, CrearSucursalData } from '../../services/trabajadores.service';
+import type { Sucursal, CrearSucursalData, NivelRiesgo } from '../../services/trabajadores.service';
+
+/* ─── Semáforo de riesgo compacto (para tabla) ─── */
+const RIESGO_CFG: Record<NivelRiesgo, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
+  BAJO:    { label: 'Bajo',    color: 'text-emerald-400', bg: 'bg-emerald-500/10', icon: <ShieldCheck className="w-3.5 h-3.5" /> },
+  MEDIO:   { label: 'Medio',   color: 'text-amber-400',   bg: 'bg-amber-500/10',   icon: <Shield className="w-3.5 h-3.5" />      },
+  ALTO:    { label: 'Alto',    color: 'text-orange-400',  bg: 'bg-orange-500/10',  icon: <ShieldAlert className="w-3.5 h-3.5" /> },
+  CRITICO: { label: 'Crítico', color: 'text-red-400',     bg: 'bg-red-500/10',     icon: <ShieldAlert className="w-3.5 h-3.5" /> },
+};
+
+function BadgeRiesgo({ nivel }: { nivel?: NivelRiesgo | null }) {
+  if (!nivel) return <span className="text-xs opacity-30">—</span>;
+  const cfg = RIESGO_CFG[nivel];
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${cfg.bg} ${cfg.color}`}>
+      {cfg.icon}{cfg.label}
+    </span>
+  );
+}
+
+/* ─── Indicador de alerta DC ─── */
+function AlertaDC({ fecha }: { fecha?: string | null }) {
+  if (!fecha) return null;
+  const dias = Math.ceil((new Date(fecha).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  if (dias < 0) return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-bold bg-red-500/20 text-red-400 animate-pulse" title="Certificado DC VENCIDO">
+      <AlertTriangle className="w-3 h-3" /> DC Vencido
+    </span>
+  );
+  if (dias <= 30) return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-400" title={`Certif. DC vence en ${dias} días`}>
+      <AlertTriangle className="w-3 h-3" /> {dias}d
+    </span>
+  );
+  return null;
+}
 
 /* ─── Helper: abrir Google Maps ─── */
 function abrirMapa(lat?: number, lon?: number) {
@@ -449,8 +485,7 @@ export default function PaginaSucursales() {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
 
-  // Row expand
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const cargarSucursales = async () => {
     setCargando(true);
@@ -638,86 +673,86 @@ export default function PaginaSucursales() {
                 <tr className="border-b text-xs uppercase tracking-wider" style={{ borderColor: 'var(--color-borde)', color: 'var(--color-texto-tenue)' }}>
                   <th className="px-5 py-3.5 font-semibold">Sucursal</th>
                   <th className="px-5 py-3.5 font-semibold">Dirección</th>
+                  <th className="px-5 py-3.5 font-semibold text-center">Riesgo</th>
                   <th className="px-5 py-3.5 font-semibold text-center">Supervisores</th>
                   <th className="px-5 py-3.5 font-semibold text-center">Trabajadores</th>
                   <th className="px-5 py-3.5 font-semibold text-center">Inspecciones</th>
-                  <th className="px-5 py-3.5 font-semibold text-center">Amonestaciones</th>
                   <th className="px-5 py-3.5 font-semibold text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody className="text-sm">
-                {sucursalesFiltradas.map((sucursal) => {
-                  const isExpanded = expandedId === sucursal.id;
-                  return (
-                    <>
-                      <tr
-                        key={sucursal.id}
-                        className={`border-b transition-colors cursor-pointer group ${isExpanded ? 'bg-white/[0.03]' : 'hover:bg-white/[0.03]'}`}
-                        style={{ borderColor: 'var(--color-borde)' }}
-                        onClick={() => setExpandedId(isExpanded ? null : sucursal.id)}
-                      >
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-500/10 shrink-0">
-                              <Building2 className="w-4 h-4 text-blue-400" />
-                            </div>
-                            <div>
-                              <span className="font-semibold flex items-center gap-1.5">
-                                {sucursal.nombre}
-                                {isExpanded
-                                  ? <ChevronUp className="w-3.5 h-3.5" style={{ color: 'var(--color-texto-tenue)' }} />
-                                  : <ChevronDown className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--color-texto-tenue)' }} />
-                                }
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4" style={{ color: 'var(--color-texto-secundario)' }}>
-                          {sucursal.direccion ? (
-                            <div className="flex items-center gap-1.5 max-w-[240px]">
-                              <MapPin className="w-3.5 h-3.5 shrink-0 opacity-50" />
-                              <span className="truncate">{sucursal.direccion}</span>
-                              {sucursal.latitud != null && (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); abrirMapa(sucursal.latitud, sucursal.longitud); }}
-                                  className="shrink-0 p-1 rounded hover:bg-emerald-500/20 text-emerald-400 transition-colors"
-                                  title="Abrir en Google Maps"
-                                >
-                                  <ExternalLink className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="opacity-40">—</span>
+                {sucursalesFiltradas.map((sucursal) => (
+                  <tr
+                    key={sucursal.id}
+                    className="border-b transition-colors cursor-pointer group hover:bg-white/[0.03]"
+                    style={{ borderColor: 'var(--color-borde)' }}
+                    onClick={() => navigate(`/sucursales/${sucursal.id}`)}
+                  >
+                    {/* Nombre */}
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-500/10 shrink-0">
+                          <Building2 className="w-4 h-4 text-blue-400" />
+                        </div>
+                        <div>
+                          <span className="font-semibold flex items-center gap-2 flex-wrap">
+                            {sucursal.nombre}
+                            <AlertaDC fecha={sucursal.vencimientoCertificadoDC} />
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                    {/* Dirección */}
+                    <td className="px-5 py-4" style={{ color: 'var(--color-texto-secundario)' }}>
+                      {sucursal.direccion ? (
+                        <div className="flex items-center gap-1.5 max-w-[240px]">
+                          <MapPin className="w-3.5 h-3.5 shrink-0 opacity-50" />
+                          <span className="truncate">{sucursal.direccion}</span>
+                          {sucursal.latitud != null && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); abrirMapa(sucursal.latitud, sucursal.longitud); }}
+                              className="shrink-0 p-1 rounded hover:bg-emerald-500/20 text-emerald-400 transition-colors"
+                              title="Abrir en Google Maps"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </button>
                           )}
-                        </td>
-                        <td className="px-5 py-4 text-center">
-                          <Badge valor={sucursal._count?.supervisores || 0} color="purple" />
-                        </td>
-                        <td className="px-5 py-4 text-center">
-                          <Badge valor={sucursal._count?.trabajadores || 0} color="blue" />
-                        </td>
-                        <td className="px-5 py-4 text-center">
-                          <Badge valor={sucursal._count?.inspecciones || 0} color="green" />
-                        </td>
-                        <td className="px-5 py-4 text-center">
-                          <Badge
-                            valor={sucursal._count?.amonestaciones || 0}
-                            color={(sucursal._count?.amonestaciones || 0) > 0 ? 'red' : 'green'}
-                          />
-                        </td>
-                        <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
-                          <MenuAcciones
-                            sucursal={sucursal}
-                            onEditar={() => abrirEditar(sucursal)}
-                            onEliminar={() => manejarDesactivar(sucursal.id, sucursal.nombre)}
-                          />
-                        </td>
-                      </tr>
-                      {isExpanded && <FilaDetalle sucursal={sucursal} />}
-                    </>
-                  );
-                })}
+                        </div>
+                      ) : (
+                        <span className="opacity-40">—</span>
+                      )}
+                    </td>
+                    {/* Riesgo */}
+                    <td className="px-5 py-4 text-center">
+                      <BadgeRiesgo nivel={sucursal.nivelRiesgo} />
+                    </td>
+                    {/* Supervisores */}
+                    <td className="px-5 py-4 text-center">
+                      <Badge valor={sucursal._count?.supervisores || 0} color="purple" />
+                    </td>
+                    {/* Trabajadores */}
+                    <td className="px-5 py-4 text-center">
+                      <Badge valor={sucursal._count?.trabajadores || 0} color="blue" />
+                    </td>
+                    {/* Inspecciones */}
+                    <td className="px-5 py-4 text-center">
+                      <Badge valor={sucursal._count?.inspecciones || 0} color="green" />
+                    </td>
+                    {/* Acciones */}
+                    <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1">
+                        <MenuAcciones
+                          sucursal={sucursal}
+                          onEditar={() => abrirEditar(sucursal)}
+                          onEliminar={() => manejarDesactivar(sucursal.id, sucursal.nombre)}
+                        />
+                        <span className="p-1.5 rounded-lg opacity-30 group-hover:opacity-70 transition-opacity" style={{ color: 'var(--color-texto-secundario)' }}>
+                          <ChevronRight className="w-4 h-4" />
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

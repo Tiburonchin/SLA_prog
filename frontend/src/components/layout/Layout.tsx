@@ -4,7 +4,23 @@ import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
 
 export default function Layout() {
-  const { usuario } = useAuthStore();
+  const { usuario, inicializando } = useAuthStore();
+
+  // Mientras cargarSesion verifica la sesión guardada, mostrar spinner
+  // evita que RutaProtegida redirija a /login antes de tiempo
+  if (inicializando) {
+    return (
+      <div
+        className="flex h-screen items-center justify-center"
+        style={{ backgroundColor: 'var(--color-fondo-principal)' }}
+      >
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 rounded-full border-4 border-t-transparent animate-spin" style={{ borderColor: 'var(--color-primary-500)', borderTopColor: 'transparent' }} />
+          <p className="text-sm" style={{ color: 'var(--color-texto-secundario)' }}>Cargando sesión…</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!usuario) {
     return <Navigate to="/login" replace />;
@@ -30,10 +46,11 @@ export default function Layout() {
             backgroundColor: 'rgba(15, 23, 42, 0.8)',
           }}
         >
-          <h2 className="text-lg font-semibold">Sistema de Gestión HSE</h2>
+          <h2 className="text-lg font-semibold hidden sm:block">Sistema de Gestión HSE</h2>
+          <h2 className="text-lg font-semibold sm:hidden">HSE</h2>
           <div className="flex items-center gap-3">
             <div
-              className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
+              className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold cursor-pointer transition-transform hover:scale-105 active:scale-95 shadow-md"
               style={{ backgroundColor: 'var(--color-primary-600)' }}
             >
               {usuario.nombreCompleto.charAt(0).toUpperCase()}

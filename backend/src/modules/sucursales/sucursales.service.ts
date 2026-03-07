@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { CrearSucursalDto, ActualizarSucursalDto } from './dto/sucursal.dto';
 
 @Injectable()
@@ -38,8 +39,19 @@ export class SucursalesService {
       throw new ConflictException('Ya existe una sucursal con este nombre');
     }
 
+    const { brigadasEmergencia, peligrosIdentificados, ...rest } = dto;
+
     return this.prisma.sucursal.create({
-      data: dto,
+      data: {
+        ...rest,
+        // JSON fields cast to Prisma.InputJsonValue to satisfy strict typing
+        ...(brigadasEmergencia !== undefined && {
+          brigadasEmergencia: brigadasEmergencia as unknown as Prisma.InputJsonValue,
+        }),
+        ...(peligrosIdentificados !== undefined && {
+          peligrosIdentificados: peligrosIdentificados as unknown as Prisma.InputJsonValue,
+        }),
+      },
     });
   }
 
@@ -54,9 +66,19 @@ export class SucursalesService {
       if (existente) throw new ConflictException('Ya existe una sucursal con este nombre');
     }
 
+    const { brigadasEmergencia, peligrosIdentificados, ...rest } = dto;
+
     return this.prisma.sucursal.update({
       where: { id },
-      data: dto,
+      data: {
+        ...rest,
+        ...(brigadasEmergencia !== undefined && {
+          brigadasEmergencia: brigadasEmergencia as unknown as Prisma.InputJsonValue,
+        }),
+        ...(peligrosIdentificados !== undefined && {
+          peligrosIdentificados: peligrosIdentificados as unknown as Prisma.InputJsonValue,
+        }),
+      },
     });
   }
 

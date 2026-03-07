@@ -87,7 +87,7 @@ export default function PaginaReportes() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-3">
             <BarChart3 className="w-7 h-7" style={{ color: 'var(--color-primary-500)' }} />

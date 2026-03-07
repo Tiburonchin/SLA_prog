@@ -5,11 +5,12 @@ interface AuthState {
   usuario: UsuarioInfo | null;
   token: string | null;
   cargando: boolean;
+  inicializando: boolean;  // true mientras cargarSesion verifica la sesión inicial
   error: string | null;
 
   login: (credenciales: LoginCredenciales) => Promise<void>;
   logout: () => void;
-  cargarSesion: () => void;
+  cargarSesion: () => Promise<void>;
   limpiarError: () => void;
 }
 
@@ -17,6 +18,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   usuario: null,
   token: null,
   cargando: false,
+  inicializando: true,  // arranca true; se pone false cuando cargarSesion termina
   error: null,
 
   login: async (credenciales) => {
@@ -51,8 +53,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       try {
         const usuario = JSON.parse(usuarioStr);
         set({ usuario, token });
-        
-        // Verificar validez del token en el backend
+        // Verificar que el token siga siendo válido en el backend
         await authService.obtenerPerfil();
       } catch {
         localStorage.removeItem('hse_token');
@@ -60,6 +61,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({ usuario: null, token: null });
       }
     }
+    // Siempre marcar la inicialización como completa
+    set({ inicializando: false });
   },
 
   limpiarError: () => set({ error: null }),

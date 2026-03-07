@@ -26,9 +26,11 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('hse_token');
-      localStorage.removeItem('hse_usuario');
-      window.location.href = '/login';
+      // Limpiar sesión vía Zustand para evitar hard reload (pantalla en blanco)
+      // Importación lazy para evitar dependencia circular con auth.store
+      import('../stores/auth.store').then(({ useAuthStore }) => {
+        useAuthStore.getState().logout();
+      });
     }
     return Promise.reject(error);
   }

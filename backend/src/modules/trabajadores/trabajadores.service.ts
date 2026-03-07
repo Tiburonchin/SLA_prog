@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CrearTrabajadorDto, ActualizarTrabajadorDto } from './dto/trabajador.dto';
 import { CrearEntregaEppDto } from './dto/trabajador-epp.dto';
@@ -8,9 +8,43 @@ import { CrearCapacitacionDto } from './dto/trabajador-cap.dto';
 export class TrabajadoresService {
   constructor(private prisma: PrismaService) {}
 
+  // Validación de jurisdicción para supervisores
+  private async validarJurisdiccion(usuario: any, sucursalIdDeseada?: string | null): Promise<string[] | undefined> {
+    if (usuario.rol !== 'SUPERVISOR') return undefined; // No restringe a COORDINADOR o JEFATURA
+    
+    // Obtener las sucursales asignadas al supervisor
+    const supervisor = await this.prisma.supervisor.findUnique({
+      where: { usuarioId: usuario.id },
+      include: { sucursales: true }
+    });
+
+    if (!supervisor || supervisor.sucursales.length === 0) {
+      throw new ForbiddenException('No tiene sucursales asignadas');
+    }
+
+    const susSucursalesIds = supervisor.sucursales.map(s => s.sucursalId);
+
+    if (sucursalIdDeseada && !susSucursalesIds.includes(sucursalIdDeseada)) {
+      throw new ForbiddenException('No tiene jurisdicción sobre esta sucursal');
+    }
+
+    return susSucursalesIds;
+  }
+  
+  private async verificarAccesoTrabajador(usuario: any, trabajadorId: string) {
+    if (usuario.rol !== 'SUPERVISOR') return;
+    
+    const trabajador = await this.prisma.trabajador.findUnique({ where: { id: trabajadorId }, select: { sucursalId: true } });
+    if (!trabajador) throw new NotFoundException('Trabajador no encontrado');
+    
+    await this.validarJurisdiccion(usuario, trabajador.sucursalId);
+  }
+
   // Obtener todos los trabajadores activos con su sucursal (PAGINADO)
-  async obtenerTodos(busqueda?: string, sucursalId?: string, page: number = 1, limit: number = 20) {
-    const where: any = { activo: true };
+  async obtenerTodos(usuario: any, busqueda?: string, sucursalId?: string, page: number = 1, limit: number = 20) {
+    const where: any = { estadoLaboral: 'ACTIVO' };
+    
+    const sucursalesPermitidas = await this.validarJurisdiccion(usuario, sucursalId);
 
     if (busqueda) {
       where.OR = [
@@ -20,7 +54,9 @@ export class TrabajadoresService {
       ];
     }
 
-    if (sucursalId) {
+    if (sucursalesPermitidas && !sucursalId) {
+      where.sucursalId = { in: sucursalesPermitidas };
+    } else if (sucursalId) {
       where.sucursalId = sucursalId;
     }
 
@@ -49,7 +85,8 @@ export class TrabajadoresService {
   }
 
   // Obtener un trabajador con su perfil 360°
-  async obtenerPorId(id: string) {
+  async obtenerPorId(usuario: any, id: string) {
+    await this.verificarAccesoTrabajador(usuario, id);
     const trabajador = await this.prisma.trabajador.findUnique({
       where: { id },
       include: {
@@ -76,7 +113,8 @@ export class TrabajadoresService {
   }
 
   // Obtener datos médicos de emergencia optimizados
-  async obtenerEmergencia(id: string) {
+  async obtenerEmergencia(usuario: any, id: string) {
+    await this.verificarAccesoTrabajador(usuario, id);
     const trabajador = await this.prisma.trabajador.findUnique({
       where: { id },
       select: {
@@ -86,8 +124,10 @@ export class TrabajadoresService {
         tipoSangre: true,
         contactoEmergencia: true,
         telefonoEmergencia: true,
-        estadoSalud: true,
-        alergias: true,
+        estadoEMO: true,
+        fechaVencimientoEMO: true,
+        estadoLaboral: true,
+        alergiasCriticas: true,
         condicionesPreexistentes: true,
         eps: true,
         arl: true,
@@ -107,20 +147,24 @@ export class TrabajadoresService {
   }
 
   // Buscar trabajador por código QR
-  async obtenerPorQr(codigoQr: string) {
+  async obtenerPorQr(usuario: any, codigoQr: string) {
     const trabajador = await this.prisma.trabajador.findUnique({
       where: { codigoQr },
-      select: { id: true }
+      select: { id: true, sucursalId: true }
     });
     
     if (!trabajador) {
       throw new NotFoundException('Código QR no asociado a ningún trabajador');
     }
-    return trabajador;
+    
+    await this.validarJurisdiccion(usuario, trabajador.sucursalId);
+    
+    return { id: trabajador.id };
   }
 
   // Crear un nuevo trabajador
-  async crear(dto: CrearTrabajadorDto) {
+  async crear(usuario: any, dto: CrearTrabajadorDto) {
+    await this.validarJurisdiccion(usuario, dto.sucursalId);
     // Verificar que el DNI no exista
     const existente = await this.prisma.trabajador.findUnique({
       where: { dni: dto.dni },
@@ -130,7 +174,7 @@ export class TrabajadoresService {
       throw new ConflictException('Ya existe un trabajador con ese DNI');
     }
 
-    const { fotoBase64, fechaUltimoExamen, fechaIngreso, fechaNacimiento, ...restDto } = dto;
+    const { fotoBase64, fechaUltimoExamen, fechaIngreso, fechaNacimiento, fechaVencimientoEMO, ...restDto } = dto;
 
     return this.prisma.trabajador.create({
       data: {
@@ -139,6 +183,7 @@ export class TrabajadoresService {
         fechaUltimoExamen: fechaUltimoExamen ? new Date(fechaUltimoExamen) : undefined,
         fechaIngreso: fechaIngreso ? new Date(fechaIngreso) : undefined,
         fechaNacimiento: fechaNacimiento ? new Date(fechaNacimiento) : undefined,
+        fechaVencimientoEMO: fechaVencimientoEMO ? new Date(fechaVencimientoEMO) : undefined,
         codigoQr: `HSE-${dto.dni}-${Date.now()}`,
       },
       include: {
@@ -148,13 +193,15 @@ export class TrabajadoresService {
   }
 
   // Actualizar un trabajador
-  async actualizar(id: string, dto: ActualizarTrabajadorDto) {
+  async actualizar(usuario: any, id: string, dto: ActualizarTrabajadorDto) {
+    await this.verificarAccesoTrabajador(usuario, id);
+    if (dto.sucursalId) await this.validarJurisdiccion(usuario, dto.sucursalId);
     const trabajador = await this.prisma.trabajador.findUnique({ where: { id } });
     if (!trabajador) {
       throw new NotFoundException('Trabajador no encontrado');
     }
 
-    const { fotoBase64, fechaUltimoExamen, fechaIngreso, fechaNacimiento, ...restDto } = dto;
+    const { fotoBase64, fechaUltimoExamen, fechaIngreso, fechaNacimiento, fechaVencimientoEMO, ...restDto } = dto;
 
     return this.prisma.trabajador.update({
       where: { id },
@@ -164,6 +211,7 @@ export class TrabajadoresService {
         ...(fechaUltimoExamen !== undefined && { fechaUltimoExamen: fechaUltimoExamen ? new Date(fechaUltimoExamen) : null }),
         ...(fechaIngreso !== undefined && { fechaIngreso: fechaIngreso ? new Date(fechaIngreso) : null }),
         ...(fechaNacimiento !== undefined && { fechaNacimiento: fechaNacimiento ? new Date(fechaNacimiento) : null }),
+        ...(fechaVencimientoEMO !== undefined && { fechaVencimientoEMO: fechaVencimientoEMO ? new Date(fechaVencimientoEMO) : null }),
       },
       include: {
         sucursal: { select: { id: true, nombre: true } },
@@ -184,23 +232,11 @@ export class TrabajadoresService {
     });
   }
 
-  // Obtener estadísticas rápidas
-  async estadisticas() {
-    const [total, activos, porSucursal] = await Promise.all([
-      this.prisma.trabajador.count(),
-      this.prisma.trabajador.count({ where: { activo: true } }),
-      this.prisma.trabajador.groupBy({
-        by: ['sucursalId'],
-        _count: true,
-        where: { activo: true },
-      }),
-    ]);
 
-    return { total, activos, inactivos: total - activos, porSucursal };
-  }
 
   // Registrar Entrega EPP
-  async registrarEntregaEpp(trabajadorId: string, dto: CrearEntregaEppDto) {
+  async registrarEntregaEpp(usuario: any, trabajadorId: string, dto: CrearEntregaEppDto) {
+    await this.verificarAccesoTrabajador(usuario, trabajadorId);
     const trabajador = await this.prisma.trabajador.findUnique({ where: { id: trabajadorId } });
     if (!trabajador) throw new NotFoundException('Trabajador no encontrado');
 
@@ -218,7 +254,8 @@ export class TrabajadoresService {
   }
 
   // Registrar Capacitacion
-  async registrarCapacitacion(trabajadorId: string, dto: CrearCapacitacionDto) {
+  async registrarCapacitacion(usuario: any, trabajadorId: string, dto: CrearCapacitacionDto) {
+    await this.verificarAccesoTrabajador(usuario, trabajadorId);
     const trabajador = await this.prisma.trabajador.findUnique({ where: { id: trabajadorId } });
     if (!trabajador) throw new NotFoundException('Trabajador no encontrado');
 

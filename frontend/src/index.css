@@ -71,6 +71,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Fix option contrast in select dropdowns */
+option {
+  background-color: var(--color-fondo-card);
+  color: var(--color-texto-principal);
+}
+
 /* ===== Scrollbar personalizado ===== */
 
 ::-webkit-scrollbar {

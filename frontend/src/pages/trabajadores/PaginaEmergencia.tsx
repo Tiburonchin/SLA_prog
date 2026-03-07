@@ -40,7 +40,7 @@ export default function PaginaEmergencia() {
     );
   }
 
-  const esPeligro = datos.estadoSalud === 'NO_APTO' || datos.estadoSalud === 'APTO_CON_RESTRICCIONES';
+  const esPeligro = datos.estadoEMO === 'NO_APTO' || datos.estadoEMO === 'APTO_RESTRICCION';
 
   return (
     <div className="min-h-screen text-white animate-fade-in pb-12" style={{ backgroundColor: 'var(--color-peligro-600)' }}>
@@ -66,7 +66,7 @@ export default function PaginaEmergencia() {
             <span className="bg-zinc-100 px-4 py-2 rounded-xl border border-zinc-200">DNI: {datos.dni}</span>
             {esPeligro && (
                <span className="bg-orange-100 text-orange-700 px-4 py-2 rounded-xl flex items-center gap-2">
-                 <AlertCircle className="w-5 h-5" /> Salud: {datos.estadoSalud.replace(/_/g, ' ')}
+                 <AlertCircle className="w-5 h-5" /> EMO: {datos.estadoEMO.replace(/_/g, ' ')}
                </span>
             )}
           </div>

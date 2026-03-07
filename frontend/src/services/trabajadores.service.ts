@@ -8,7 +8,9 @@ export interface Trabajador {
   tipoSangre?: string;
   telefonoEmergencia?: string;
   contactoEmergencia?: string;
-  estadoSalud: 'APTO' | 'NO_APTO' | 'APTO_CON_RESTRICCIONES';
+  estadoEMO: 'APTO' | 'NO_APTO' | 'APTO_RESTRICCION';
+  estadoLaboral: 'ACTIVO' | 'CESADO';
+  fechaVencimientoEMO?: string;
   tallaCasco?: string;
   tallaCamisa?: string;
   tallaPantalon?: string;
@@ -16,7 +18,7 @@ export interface Trabajador {
   tallaGuantes?: string;
   codigoQr?: string;
   fotoUrl?: string;
-  alergias?: string;
+  alergiasCriticas?: string;
   condicionesPreexistentes?: string;
   eps?: string;
   arl?: string;
@@ -45,6 +47,27 @@ export interface Trabajador {
   };
 }
 
+// ── Enums HSE ────────────────────────────────────────────────
+export type TipoInstalacion = 'OFICINA' | 'PLANTA_INDUSTRIAL' | 'ALMACEN' | 'LABORATORIO' | 'OBRA';
+export type NivelRiesgo = 'BAJO' | 'MEDIO' | 'ALTO' | 'CRITICO';
+export type CategoriaIncendio = 'BAJO' | 'ORDINARIO' | 'ALTO';
+export type ResultadoInspeccionSUNAFIL = 'CONFORME' | 'OBSERVADO' | 'NO_CONFORME' | 'SANCIONADO';
+
+// ── Tipos para JSON fields ────────────────────────────────────
+export interface BrigadaEmergencia {
+  tipo: string;
+  jefe: string;
+  miembros: number;
+  certificado: boolean;
+}
+
+export interface PeligroIdentificado {
+  tipo: string;
+  nivel: 'BAJO' | 'MEDIO' | 'ALTO' | 'CRITICO';
+  zona: string;
+  control: string;
+}
+
 export interface Sucursal {
   id: string;
   nombre: string;
@@ -52,6 +75,56 @@ export interface Sucursal {
   latitud?: number;
   longitud?: number;
   activa: boolean;
+  creadoEn?: string;
+  actualizadoEn?: string;
+
+  // Clasificación
+  tipoInstalacion?: TipoInstalacion;
+  nivelRiesgo?: NivelRiesgo;
+  categoriaIncendio?: CategoriaIncendio;
+
+  // Datos legales
+  codigoCIIU?: string;
+  codigoEstablecimientoINDECI?: string;
+  numeroCertificadoDC?: string;
+  vencimientoCertificadoDC?: string;
+  fechaProximaRevisionDC?: string;
+
+  // Infraestructura física
+  aforoMaximo?: number;
+  areaM2?: number;
+  numeroPisos?: number;
+  anioConstruccion?: number;
+  zonaRiesgoSismico?: number;
+
+  // Gestión de emergencias
+  responsableSSTNombre?: string;
+  responsableSSTTelefono?: string;
+  medicoOcupacionalNombre?: string;
+  centroMedicoMasCercano?: string;
+  telefonoCentroMedico?: string;
+  cantidadExtintores?: number;
+  tieneDesfibriladorDEA?: boolean;
+  ubicacionDEA?: string;
+  cantidadBotiquines?: number;
+  tieneEnfermeria?: boolean;
+  telefonoEmergenciasSede?: string;
+
+  // Plan de emergencia
+  planEmergenciaVigente?: boolean;
+  fechaVencimientoPlanEmergencia?: string;
+  fechaUltimoSimulacro?: string;
+  cantidadSimulacrosAnio?: number;
+
+  // JSONB
+  brigadasEmergencia?: BrigadaEmergencia[] | null;
+  peligrosIdentificados?: PeligroIdentificado[] | null;
+
+  // Trazabilidad SUNAFIL
+  fechaUltimaInspeccionSUNAFIL?: string;
+  resultadoUltimaInspeccion?: ResultadoInspeccionSUNAFIL;
+  observacionesLegalesActivas?: string;
+
   _count?: {
     trabajadores: number;
     inspecciones: number;
@@ -75,14 +148,13 @@ export interface CrearTrabajadorData {
   tipoSangre?: string;
   telefonoEmergencia?: string;
   contactoEmergencia?: string;
-  estadoSalud?: string;
   tallaCasco?: string;
   tallaCamisa?: string;
   tallaPantalon?: string;
   tallaCalzado?: string;
   tallaGuantes?: string;
   fotoBase64?: string;
-  alergias?: string;
+  alergiasCriticas?: string;
   condicionesPreexistentes?: string;
   eps?: string;
   arl?: string;
@@ -95,6 +167,9 @@ export interface CrearTrabajadorData {
   correo?: string;
   turno?: string;
   nivelEducativo?: string;
+  estadoEMO?: 'APTO' | 'NO_APTO' | 'APTO_RESTRICCION';
+  estadoLaboral?: 'ACTIVO' | 'CESADO';
+  fechaVencimientoEMO?: string;
 }
 
 export interface PaginacionRespuesta<T> {

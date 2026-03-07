@@ -10,7 +10,7 @@ import {
   AlertTriangle, MapPin, Phone, User, Droplets,
   QrCode, Edit3, Save, X, Plus, Building2, Calendar,
   ExternalLink, Camera, ClipboardCheck, Stethoscope, ShieldCheck,
-  Briefcase, Mail, FileText
+  Briefcase, Mail, FileText, HardHat, Shirt, Footprints, Hand, Zap
 } from 'lucide-react';
 
 const calcularAnios = (fecha?: string) => {
@@ -23,10 +23,26 @@ const calcularAnios = (fecha?: string) => {
   return edad;
 };
 
-const ESTADO_SALUD: Record<string, { label: string; color: string; bg: string }> = {
-  APTO: { label: 'Apto', color: 'var(--color-exito-500)', bg: 'rgba(34,197,94,0.15)' },
-  NO_APTO: { label: 'No Apto', color: 'var(--color-peligro-500)', bg: 'rgba(239,68,68,0.15)' },
-  APTO_CON_RESTRICCIONES: { label: 'Con Restricciones', color: 'var(--color-advertencia-500)', bg: 'rgba(245,158,11,0.15)' },
+const ESTADO_EMO: Record<string, { label: string; color: string; bg: string }> = {
+  APTO:            { label: 'EMO: Apto',             color: 'var(--color-exito-500)',      bg: 'rgba(34,197,94,0.15)' },
+  NO_APTO:         { label: 'EMO: No Apto',          color: 'var(--color-peligro-500)',    bg: 'rgba(239,68,68,0.15)' },
+  APTO_RESTRICCION:{ label: 'EMO: Restricciones',    color: 'var(--color-advertencia-500)',bg: 'rgba(245,158,11,0.15)' },
+};
+
+const ESTADO_LABORAL: Record<string, { label: string; color: string; bg: string }> = {
+  ACTIVO: { label: 'Activo',  color: 'var(--color-exito-500)',   bg: 'rgba(34,197,94,0.15)' },
+  CESADO: { label: 'Cesado',  color: 'var(--color-peligro-500)', bg: 'rgba(239,68,68,0.15)' },
+};
+
+/** Devuelve true si hay alguna entrega vencida de EPPs que coincida con la palabra clave */
+const eppVencido = (entregas: any[] | undefined, keyword: string): boolean => {
+  if (!entregas?.length) return false;
+  const hoy = new Date();
+  return entregas.some(e =>
+    e.tipoEpp?.toLowerCase().includes(keyword) &&
+    e.fechaVencimiento &&
+    new Date(e.fechaVencimiento) < hoy
+  );
 };
 
 /* ─── Helper para comprimir imagen ─── */
@@ -78,14 +94,13 @@ export default function PaginaDetalleTrabajador() {
   const navigate = useNavigate();
   const [trabajador, setTrabajador] = useState<Trabajador | null>(null);
   const [cargando, setCargando] = useState(true);
-  const [pestana, setPestana] = useState<'info' | 'epp' | 'capacitaciones' | 'historial' | 'inspecciones'>('info');
+  const [pestana, setPestana] = useState<'info' | 'epp' | 'capacitaciones' | 'historial' | 'inspecciones' | 'documentos'>('info');
   const [mostrarQR, setMostrarQR] = useState(false);
   const [mostrarMasInfo, setMostrarMasInfo] = useState(false);
 
   // Edit state
   const [editando, setEditando] = useState(false);
   const [guardando, setGuardando] = useState(false);
-  const [desactivando, setDesactivando] = useState(false);
   const [formEdit, setFormEdit] = useState<Partial<Trabajador & { fotoBase64: string }>>({});
 
   // Modals
@@ -128,13 +143,16 @@ export default function PaginaDetalleTrabajador() {
         tipoSangre: formEdit.tipoSangre,
         telefonoEmergencia: formEdit.telefonoEmergencia,
         contactoEmergencia: formEdit.contactoEmergencia,
+        estadoEMO: formEdit.estadoEMO,
+        estadoLaboral: formEdit.estadoLaboral,
+        fechaVencimientoEMO: formEdit.fechaVencimientoEMO ? String(formEdit.fechaVencimientoEMO).split('T')[0] : undefined,
         tallaCasco: formEdit.tallaCasco,
         tallaCamisa: formEdit.tallaCamisa,
         tallaPantalon: formEdit.tallaPantalon,
         tallaCalzado: formEdit.tallaCalzado,
         tallaGuantes: formEdit.tallaGuantes,
         fotoBase64: formEdit.fotoBase64,
-        alergias: formEdit.alergias,
+        alergiasCriticas: (formEdit as any).alergiasCriticas,
         condicionesPreexistentes: formEdit.condicionesPreexistentes,
         eps: formEdit.eps,
         arl: formEdit.arl,
@@ -152,15 +170,6 @@ export default function PaginaDetalleTrabajador() {
       cargar();
     } catch (err) { console.error('Error al actualizar', err); }
     finally { setGuardando(false); }
-  };
-
-  const manejarDesactivar = async () => {
-    if (!id || !trabajador?.activo) return;
-    if (!window.confirm(`¿Desactivar al trabajador ${trabajador.nombreCompleto}?`)) return;
-    setDesactivando(true);
-    try { await trabajadoresService.desactivar(id); cargar(); }
-    catch (err) { console.error(err); }
-    finally { setDesactivando(false); }
   };
 
   const manejarGuardarEpp = async (e: React.FormEvent) => {
@@ -226,27 +235,28 @@ export default function PaginaDetalleTrabajador() {
 
   if (!trabajador) return null;
 
-  const badge = ESTADO_SALUD[trabajador.estadoSalud];
+  const badgeEMO     = ESTADO_EMO[trabajador.estadoEMO]     ?? ESTADO_EMO['APTO'];
+  const badgeLaboral = ESTADO_LABORAL[trabajador.estadoLaboral] ?? ESTADO_LABORAL['ACTIVO'];
+  const emoVencido   = trabajador.fechaVencimientoEMO && new Date(trabajador.fechaVencimientoEMO) < new Date();
   const initials = trabajador.nombreCompleto.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* ── Back button ── */}
       <button onClick={() => navigate('/trabajadores')} className="flex items-center gap-2 text-sm font-medium transition-colors hover:text-white" style={{ color: 'var(--color-texto-secundario)' }}>
         <ArrowLeft className="w-4 h-4" /> Volver a Trabajadores
       </button>
 
       {/* ── 2-COLUMN LAYOUT ── */}
-      <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex flex-col lg:flex-row gap-4">
         {/* LEFT: Profile Card */}
-        <div className="lg:w-[320px] shrink-0 space-y-4">
-          
+        <div className="lg:w-[300px] shrink-0 space-y-3">
           
 
-          <div className="rounded-xl border p-6 space-y-5" style={{ backgroundColor: 'var(--color-fondo-card)', borderColor: 'var(--color-borde)' }}>
+          <div className="rounded-xl border p-4 space-y-4" style={{ backgroundColor: 'var(--color-fondo-card)', borderColor: 'var(--color-borde)' }}>
             {/* Avatar + Name */}
             <div className="text-center">
-              <div className="relative w-24 h-24 mx-auto mb-3 group">
+              <div className="relative w-20 h-20 mx-auto mb-2 group">
                 {editando && (
                   <input type="file" accept="image/*" onChange={manejarCambioFoto} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" title="Cambiar foto de perfil" />
                 )}
@@ -272,11 +282,16 @@ export default function PaginaDetalleTrabajador() {
 
             {/* Badges */}
             <div className="flex flex-wrap justify-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold" style={{ backgroundColor: badge?.bg, color: badge?.color }}>
-                <Heart className="w-3.5 h-3.5" /> {badge?.label}
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold" style={{ backgroundColor: badgeEMO?.bg, color: badgeEMO?.color }}>
+                <Stethoscope className="w-3.5 h-3.5" /> {badgeEMO?.label}
               </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold" style={{ backgroundColor: trabajador.activo ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: trabajador.activo ? 'var(--color-exito-500)' : 'var(--color-peligro-500)' }}>
-                {trabajador.activo ? 'Activo' : 'Inactivo'}
+              {emoVencido && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-red-500/20 text-red-400">
+                  <AlertTriangle className="w-3.5 h-3.5" /> EMO Vencido
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold" style={{ backgroundColor: badgeLaboral?.bg, color: badgeLaboral?.color }}>
+                <Briefcase className="w-3.5 h-3.5" /> {badgeLaboral?.label}
               </span>
             </div>
 
@@ -333,109 +348,15 @@ export default function PaginaDetalleTrabajador() {
               </div>
             </div>
 
-            {/* ── Toggle Detalles ── */}
-            {!editando && (
-              <button
-                onClick={() => setMostrarMasInfo(!mostrarMasInfo)}
-                className="w-full flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-lg border hover:bg-white/5 transition-colors"
-                style={{ borderColor: 'var(--color-borde)', color: 'var(--color-texto-secundario)', marginTop: '1rem' }}
-              >
-                {mostrarMasInfo ? 'Ocultar detalles avanzados' : 'Ver todos los detalles...'}
-              </button>
-            )}
-
-            {(mostrarMasInfo || editando) && (
-              <>
-                {/* ── Info Auxiliar ── */}
-                <div className="mt-4 pt-4 border-t space-y-3" style={{ borderColor: 'var(--color-borde)' }}>
-                  <h4 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--color-texto-tenue)' }}>
-                    <Briefcase className="w-3.5 h-3.5" /> Laboral & Personal
-                  </h4>
-                  <div className="grid grid-cols-2 gap-2 pb-2">
-                    <div className="p-2 rounded-lg bg-black/10 text-center">
-                      <p className="text-[10px] font-bold uppercase" style={{ color: 'var(--color-texto-tenue)' }}>Antigüedad</p>
-                      <p className="text-sm font-semibold text-blue-400">
-                        {trabajador.fechaIngreso ? `${calcularAnios(trabajador.fechaIngreso)} años` : '—'}
-                      </p>
-                    </div>
-                    <div className="p-2 rounded-lg bg-black/10 text-center">
-                      <p className="text-[10px] font-bold uppercase" style={{ color: 'var(--color-texto-tenue)' }}>Edad</p>
-                      <p className="text-sm font-semibold text-emerald-400">
-                        {trabajador.fechaNacimiento ? `${calcularAnios(trabajador.fechaNacimiento)} años` : '—'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {[
-                    { key: 'turno', label: 'Turno', valor: trabajador.turno, icono: <Calendar className="w-3 h-3"/> },
-                    { key: 'telefono', label: 'Móvil', valor: trabajador.telefono, icono: <Phone className="w-3 h-3"/> },
-                    { key: 'correo', label: 'Email', valor: trabajador.correo, icono: <Mail className="w-3 h-3"/> },
-                    { key: 'curp', label: 'CURP', valor: trabajador.curp, icono: <FileText className="w-3 h-3"/> },
-                    { key: 'nss', label: 'NSS', valor: trabajador.nss, icono: <ShieldCheck className="w-3 h-3"/> },
-                    { key: 'nivelEducativo', label: 'Educación', valor: trabajador.nivelEducativo, icono: <GraduationCap className="w-3 h-3"/> },
-                  ].map(item => (
-                    <div key={item.key} className="flex items-start gap-2">
-                      <div className="mt-0.5" style={{ color: 'var(--color-texto-tenue)' }}>{item.icono}</div>
-                      <p className="text-xs w-16 shrink-0 pt-0.5" style={{ color: 'var(--color-texto-tenue)' }}>{item.label}</p>
-                      {editando ? (
-                        <input value={(formEdit as any)[item.key] || ''} onChange={e => setFormEdit({ ...formEdit, [item.key]: e.target.value })} className="flex-1 bg-transparent border-b text-xs outline-none focus:border-blue-500" style={{ borderColor: 'var(--color-borde)' }} placeholder={`Sin ${item.label.toLowerCase()}`} />
-                      ) : (
-                        <p className="text-[13px] font-medium break-all">{item.valor || '—'}</p>
-                      )}
-                    </div>
-                  ))}
-                  
-                  <div className="flex items-start gap-2">
-                    <div className="mt-0.5" style={{ color: 'var(--color-texto-tenue)' }}><Briefcase className="w-3 h-3"/></div>
-                    <p className="text-xs w-16 shrink-0 pt-0.5" style={{ color: 'var(--color-texto-tenue)' }}>Ingreso</p>
-                    {editando ? (
-                      <input type="date" value={formEdit.fechaIngreso ? String(formEdit.fechaIngreso).split('T')[0] : ''} onChange={e => setFormEdit({ ...formEdit, fechaIngreso: e.target.value })} className="flex-1 bg-transparent border-b text-xs outline-none focus:border-blue-500 appearance-none" style={{ borderColor: 'var(--color-borde)' }} />
-                    ) : (
-                      <p className="text-[13px] font-medium">{trabajador.fechaIngreso ? new Date(trabajador.fechaIngreso).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</p>
-                    )}
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <div className="mt-0.5" style={{ color: 'var(--color-texto-tenue)' }}><User className="w-3 h-3"/></div>
-                    <p className="text-xs w-16 shrink-0 pt-0.5" style={{ color: 'var(--color-texto-tenue)' }}>Nacimiento</p>
-                    {editando ? (
-                      <input type="date" value={formEdit.fechaNacimiento ? String(formEdit.fechaNacimiento).split('T')[0] : ''} onChange={e => setFormEdit({ ...formEdit, fechaNacimiento: e.target.value })} className="flex-1 bg-transparent border-b text-xs outline-none focus:border-blue-500 appearance-none" style={{ borderColor: 'var(--color-borde)' }} />
-                    ) : (
-                      <p className="text-[13px] font-medium">{trabajador.fechaNacimiento ? new Date(trabajador.fechaNacimiento).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* ── Medical Info ── */}
-                <div className="mt-4 pt-4 border-t space-y-3" style={{ borderColor: 'var(--color-borde)' }}>
-                  <h4 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--color-texto-tenue)' }}>
-                    <Stethoscope className="w-3.5 h-3.5" /> Información Médica
-                  </h4>
-                  {[
-                    { key: 'eps', label: 'EPS', valor: trabajador.eps },
-                    { key: 'arl', label: 'ARL', valor: trabajador.arl },
-                    { key: 'alergias', label: 'Alergias', valor: trabajador.alergias },
-                    { key: 'condicionesPreexistentes', label: 'Condiciones', valor: trabajador.condicionesPreexistentes },
-                  ].map(item => (
-                    <div key={item.key} className="flex items-start gap-3">
-                      <p className="text-xs w-20 shrink-0 pt-0.5" style={{ color: 'var(--color-texto-tenue)' }}>{item.label}</p>
-                      {editando ? (
-                        <input value={(formEdit as any)[item.key] || ''} onChange={e => setFormEdit({ ...formEdit, [item.key]: e.target.value })} className="flex-1 bg-transparent border-b text-sm outline-none focus:border-blue-500" style={{ borderColor: 'var(--color-borde)' }} placeholder={`Sin ${item.label.toLowerCase()}`} />
-                      ) : (
-                        <p className="text-sm font-medium">{item.valor || '—'}</p>
-                      )}
-                    </div>
-                  ))}
-                  <div className="flex items-start gap-3">
-                    <p className="text-xs w-20 shrink-0 pt-0.5" style={{ color: 'var(--color-texto-tenue)' }}>Examen</p>
-                    {editando ? (
-                      <input type="date" value={formEdit.fechaUltimoExamen ? String(formEdit.fechaUltimoExamen).split('T')[0] : ''} onChange={e => setFormEdit({ ...formEdit, fechaUltimoExamen: e.target.value })} className="flex-1 bg-transparent border-b text-sm outline-none focus:border-blue-500 appearance-none" style={{ borderColor: 'var(--color-borde)' }} />
-                    ) : (
-                      <p className="text-sm font-medium">{trabajador.fechaUltimoExamen ? new Date(trabajador.fechaUltimoExamen).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</p>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
+            {/* Accesos Críticos */}
+            <div className="space-y-3 pt-4 border-t" style={{ borderColor: 'var(--color-borde)' }}>
+              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--color-texto-secundario)' }}>Accesos Críticos</p>
+              <div className="flex flex-wrap gap-2">
+                <span className="px-2.5 py-1.5 rounded-md text-xs font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center gap-1.5"><ArrowLeft className="w-3 h-3 rotate-90" /> Alturas</span>
+                <span className="px-2.5 py-1.5 rounded-md text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center gap-1.5"><Shield className="w-3 h-3" /> Confinados</span>
+                <span className="px-2.5 py-1.5 rounded-md text-xs font-bold bg-white/5 text-gray-400 border border-white/10 opacity-50 flex items-center gap-1.5"><Zap className="w-3 h-3" /> Eléctrico</span>
+              </div>
+            </div>
 
             {/* Action buttons */}
             <div className="space-y-2 pt-2 border-t" style={{ borderColor: 'var(--color-borde)' }}>
@@ -461,11 +382,7 @@ export default function PaginaDetalleTrabajador() {
               )}
 
 
-              {trabajador.activo && (
-                <button onClick={manejarDesactivar} disabled={desactivando} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-medium transition hover:bg-red-500/10 text-red-400/60 disabled:opacity-50">
-                  {desactivando ? 'Desactivando...' : 'Desactivar Trabajador'}
-                </button>
-              )}
+              {/* Omitido boton desactivar para futura fasa */}
             </div>
           </div>
         </div>
@@ -475,11 +392,12 @@ export default function PaginaDetalleTrabajador() {
           {/* Tab bar */}
           <div className="flex overflow-x-auto gap-1 border-b no-scrollbar pb-1" style={{ borderColor: 'var(--color-borde)' }}>
             {[
-              { key: 'info', label: 'Tallas EPP', icono: <User className="w-4 h-4" /> },
+              { key: 'info', label: 'Info General', icono: <User className="w-4 h-4" /> },
               { key: 'epp', label: `Entregas (${trabajador.entregasEpp?.length || 0})`, icono: <Package className="w-4 h-4" /> },
               { key: 'capacitaciones', label: `Capacitaciones (${trabajador.capacitaciones?.length || 0})`, icono: <GraduationCap className="w-4 h-4" /> },
               { key: 'historial', label: `Historial (${trabajador.amonestaciones?.length || 0})`, icono: <AlertTriangle className="w-4 h-4" /> },
               { key: 'inspecciones', label: `Inspecciones (${trabajador.inspecciones?.length || 0})`, icono: <ClipboardCheck className="w-4 h-4" /> },
+              { key: 'documentos', label: `Documentos`, icono: <FileText className="w-4 h-4" /> },
             ].map(tab => (
               <button
                 key={tab.key}
@@ -493,37 +411,189 @@ export default function PaginaDetalleTrabajador() {
           </div>
 
           {/* Tab content */}
-          <div className="p-2 lg:p-4">
+          <div className="p-2 lg:p-0 pt-2 lg:pt-3">
             {pestana === 'info' && (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-bold text-lg">Tallas de EPP</h3>
-                  {!editando && (
-                    <button onClick={() => setEditando(true)} className="p-2 rounded-lg hover:bg-white/10 transition-colors" title="Editar tallas">
-                      <Edit3 className="w-4 h-4 text-blue-400" />
-                    </button>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                  {[
-                    { key: 'tallaCasco', label: 'Casco', valor: trabajador.tallaCasco },
-                    { key: 'tallaCamisa', label: 'Camisa', valor: trabajador.tallaCamisa },
-                    { key: 'tallaPantalon', label: 'Pantalón', valor: trabajador.tallaPantalon },
-                    { key: 'tallaCalzado', label: 'Calzado', valor: trabajador.tallaCalzado },
-                    { key: 'tallaGuantes', label: 'Guantes', valor: trabajador.tallaGuantes },
-                  ].map(t => (
-                    <div key={t.label} className="text-center p-4 rounded-lg" style={{ backgroundColor: 'var(--color-fondo-principal)' }}>
-                      <p className="text-xs font-medium mb-2" style={{ color: 'var(--color-texto-tenue)' }}>{t.label}</p>
-                      {editando ? (
-                        <input value={(formEdit as any)[t.key] || ''} onChange={e => setFormEdit({ ...formEdit, [t.key]: e.target.value })} className="w-full text-center bg-transparent border-b-2 text-lg font-bold outline-none focus:border-blue-500" style={{ borderColor: 'var(--color-primary-500)' }} />
-                      ) : (
-                        <p className="text-xl font-bold">{t.valor || '—'}</p>
-                      )}
+              <div className="space-y-5">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-bold text-lg flex items-center gap-2"><Briefcase className="w-5 h-5 text-blue-400" /> Laboral & Personal</h3>
+                    {!editando && (
+                      <button onClick={() => setEditando(true)} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors" title="Editar datos">
+                        <Edit3 className="w-4 h-4 text-blue-400" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                      <div className="flex gap-3 mb-3">
+                        <div className="px-4 py-2 rounded-lg border flex-1 text-center" style={{ backgroundColor: 'var(--color-fondo-principal)', borderColor: 'var(--color-borde)' }}>
+                          <p className="text-[10px] font-bold uppercase" style={{ color: 'var(--color-texto-tenue)' }}>Antigüedad</p>
+                          <p className="text-sm font-semibold text-blue-400">
+                            {trabajador.fechaIngreso ? `${calcularAnios(trabajador.fechaIngreso)} años` : '—'}
+                          </p>
+                        </div>
+                        <div className="px-4 py-2 rounded-lg border flex-1 text-center" style={{ backgroundColor: 'var(--color-fondo-principal)', borderColor: 'var(--color-borde)' }}>
+                          <p className="text-[10px] font-bold uppercase" style={{ color: 'var(--color-texto-tenue)' }}>Edad</p>
+                          <p className="text-sm font-semibold text-emerald-400">
+                            {trabajador.fechaNacimiento ? `${calcularAnios(trabajador.fechaNacimiento)} años` : '—'}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {[
+                        { key: 'turno', label: 'Turno', valor: trabajador.turno, icono: <Calendar className="w-4 h-4"/> },
+                        { key: 'telefono', label: 'Móvil', valor: trabajador.telefono, icono: <Phone className="w-4 h-4"/> },
+                        { key: 'correo', label: 'Email', valor: trabajador.correo, icono: <Mail className="w-4 h-4"/> },
+                      ].map(item => (
+                        <div key={item.key} className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-white/5" style={{ color: 'var(--color-texto-tenue)' }}>{item.icono}</div>
+                          <div className="flex-1">
+                            <p className="text-xs" style={{ color: 'var(--color-texto-tenue)' }}>{item.label}</p>
+                            {editando ? (
+                              <input value={(formEdit as any)[item.key] || ''} onChange={e => setFormEdit({ ...formEdit, [item.key]: e.target.value })} className="w-full bg-transparent border-b text-sm outline-none focus:border-blue-500" style={{ borderColor: 'var(--color-borde)' }} placeholder={`Sin ${item.label.toLowerCase()}`} />
+                            ) : (
+                              <p className="text-sm font-medium break-all">{item.valor || '—'}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                    
+                    <div className="space-y-4">
+                      {[
+                        { key: 'curp', label: 'CURP', valor: trabajador.curp, icono: <FileText className="w-4 h-4"/> },
+                        { key: 'nss', label: 'NSS', valor: trabajador.nss, icono: <ShieldCheck className="w-4 h-4"/> },
+                        { key: 'nivelEducativo', label: 'Educación', valor: trabajador.nivelEducativo, icono: <GraduationCap className="w-4 h-4"/> },
+                      ].map(item => (
+                        <div key={item.key} className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-white/5" style={{ color: 'var(--color-texto-tenue)' }}>{item.icono}</div>
+                          <div className="flex-1">
+                            <p className="text-xs" style={{ color: 'var(--color-texto-tenue)' }}>{item.label}</p>
+                            {editando ? (
+                              <input value={(formEdit as any)[item.key] || ''} onChange={e => setFormEdit({ ...formEdit, [item.key]: e.target.value })} className="w-full bg-transparent border-b text-sm outline-none focus:border-blue-500" style={{ borderColor: 'var(--color-borde)' }} placeholder={`Sin ${item.label.toLowerCase()}`} />
+                            ) : (
+                              <p className="text-sm font-medium break-all">{item.valor || '—'}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-white/5" style={{ color: 'var(--color-texto-tenue)' }}><Briefcase className="w-4 h-4"/></div>
+                        <div className="flex-1">
+                          <p className="text-xs" style={{ color: 'var(--color-texto-tenue)' }}>Ingreso</p>
+                          {editando ? (
+                            <input type="date" value={formEdit.fechaIngreso ? String(formEdit.fechaIngreso).split('T')[0] : ''} onChange={e => setFormEdit({ ...formEdit, fechaIngreso: e.target.value })} className="w-full bg-transparent border-b text-sm outline-none focus:border-blue-500 appearance-none" style={{ borderColor: 'var(--color-borde)' }} />
+                          ) : (
+                            <p className="text-sm font-medium">{trabajador.fechaIngreso ? new Date(trabajador.fechaIngreso).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-white/5" style={{ color: 'var(--color-texto-tenue)' }}><User className="w-4 h-4"/></div>
+                        <div className="flex-1">
+                          <p className="text-xs" style={{ color: 'var(--color-texto-tenue)' }}>Nacimiento</p>
+                          {editando ? (
+                            <input type="date" value={formEdit.fechaNacimiento ? String(formEdit.fechaNacimiento).split('T')[0] : ''} onChange={e => setFormEdit({ ...formEdit, fechaNacimiento: e.target.value })} className="w-full bg-transparent border-b text-sm outline-none focus:border-blue-500 appearance-none" style={{ borderColor: 'var(--color-borde)' }} />
+                          ) : (
+                            <p className="text-sm font-medium">{trabajador.fechaNacimiento ? new Date(trabajador.fechaNacimiento).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-3 border-t" style={{ borderColor: 'var(--color-borde)' }}>
+                  <div>
+                    <h3 className="font-bold text-[17px] mb-3 flex items-center gap-2"><Stethoscope className="w-4 h-4 text-red-400" /> Información Médica</h3>
+                    <div className="space-y-3">
+                      {[
+                        { key: 'eps', label: 'EPS', valor: trabajador.eps },
+                        { key: 'arl', label: 'ARL', valor: trabajador.arl },
+                        { key: 'alergiasCriticas', label: '⚠ Alergias', valor: trabajador.alergiasCriticas },
+                        { key: 'condicionesPreexistentes', label: 'Condiciones', valor: trabajador.condicionesPreexistentes },
+                      ].map(item => (
+                        <div key={item.key} className="flex items-center gap-3">
+                          <p className="text-xs w-24 shrink-0" style={{ color: 'var(--color-texto-tenue)' }}>{item.label}</p>
+                          {editando ? (
+                            <input value={(formEdit as any)[item.key] || ''} onChange={e => setFormEdit({ ...formEdit, [item.key]: e.target.value })} className="flex-1 bg-transparent border-b text-sm outline-none focus:border-blue-500" style={{ borderColor: 'var(--color-borde)' }} placeholder={`Sin ${item.label.replace('⚠ ', '').toLowerCase()}`} />
+                          ) : (
+                            <p className={`text-sm font-medium ${item.key === 'alergiasCriticas' && item.valor ? 'text-red-400 font-bold' : ''}`}>{item.valor || '—'}</p>
+                          )}
+                        </div>
+                      ))}
+                      <div className="flex items-center gap-3">
+                        <p className="text-xs w-24 shrink-0" style={{ color: 'var(--color-texto-tenue)' }}>Último Examen</p>
+                        {editando ? (
+                          <input type="date" value={formEdit.fechaUltimoExamen ? String(formEdit.fechaUltimoExamen).split('T')[0] : ''} onChange={e => setFormEdit({ ...formEdit, fechaUltimoExamen: e.target.value })} className="flex-1 bg-transparent border-b text-sm outline-none focus:border-blue-500 appearance-none" style={{ borderColor: 'var(--color-borde)' }} />
+                        ) : (
+                          <p className="text-sm font-medium">{trabajador.fechaUltimoExamen ? new Date(trabajador.fechaUltimoExamen).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</p>
+                        )}
+                      </div>
+
+                      {/* EMO card */}
+                      <div className={`mt-2 p-3 rounded-lg border ${emoVencido ? 'border-red-500/50 bg-red-500/10' : 'border-green-500/20 bg-green-500/5'}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-bold uppercase flex items-center gap-1.5" style={{ color: 'var(--color-texto-secundario)' }}>
+                            <Stethoscope className="w-3 h-3" /> Estado EMO
+                          </p>
+                          {emoVencido && <span className="text-[11px] font-bold bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">VENCIDO</span>}
+                        </div>
+                        {editando ? (
+                          <div className="space-y-2">
+                            <select value={(formEdit as any).estadoEMO || 'APTO'} onChange={e => setFormEdit({ ...formEdit, estadoEMO: e.target.value as any })} className="w-full bg-transparent border-b text-sm outline-none focus:border-blue-500" style={{ borderColor: 'var(--color-borde)', backgroundColor: 'transparent' }}>
+                              <option value="APTO">APTO</option>
+                              <option value="APTO_RESTRICCION">APTO CON RESTRICCIONES</option>
+                              <option value="NO_APTO">NO APTO</option>
+                            </select>
+                            <input type="date" value={(formEdit as any).fechaVencimientoEMO ? String((formEdit as any).fechaVencimientoEMO).split('T')[0] : ''} onChange={e => setFormEdit({ ...formEdit, fechaVencimientoEMO: e.target.value } as any)} className="w-full bg-transparent border-b text-sm outline-none focus:border-blue-500 appearance-none" style={{ borderColor: 'var(--color-borde)' }} placeholder="Fecha vencimiento EMO" />
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold" style={{ color: badgeEMO?.color }}>{badgeEMO?.label}</span>
+                            <span className="text-xs" style={{ color: 'var(--color-texto-tenue)' }}>
+                              {trabajador.fechaVencimientoEMO ? `Vence: ${new Date(trabajador.fechaVencimientoEMO).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}` : 'Sin fecha de vencimiento'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="font-bold text-[17px] mb-3 flex items-center gap-2"><Package className="w-4 h-4 text-amber-400" /> Tallas de EPP</h3>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                      {[
+                        { key: 'tallaCasco',    label: 'Casco',         valor: trabajador.tallaCasco,    icono: <HardHat    className="w-6 h-6 mb-2 text-yellow-500/80" />, keyword: 'casco'    },
+                        { key: 'tallaCamisa',   label: 'Camisa/Chaqueta',valor: trabajador.tallaCamisa,  icono: <Shirt      className="w-6 h-6 mb-2 text-blue-500/80"   />, keyword: 'camisa'   },
+                        { key: 'tallaPantalon', label: 'Pantalón',      valor: trabajador.tallaPantalon, icono: <User       className="w-6 h-6 mb-2 text-indigo-500/80" />, keyword: 'pantalon' },
+                        { key: 'tallaCalzado',  label: 'Calzado',       valor: trabajador.tallaCalzado,  icono: <Footprints className="w-6 h-6 mb-2 text-orange-500/80" />, keyword: 'calzado'  },
+                        { key: 'tallaGuantes',  label: 'Guantes',       valor: trabajador.tallaGuantes,  icono: <Hand       className="w-6 h-6 mb-2 text-teal-500/80"   />, keyword: 'guante'   },
+                      ].map((t) => {
+                        const vencido = eppVencido(trabajador.entregasEpp, t.keyword);
+                        return (
+                          <div key={t.label} className={`flex flex-col items-center justify-center p-3 rounded-lg border bg-white/5 transition hover:bg-white/10 relative ${vencido ? 'border-red-500/60 ring-2 ring-red-500/30' : ''}`} style={{ borderColor: vencido ? undefined : 'var(--color-borde)' }}>
+                            {vencido && (
+                              <span className="absolute top-1 right-1 text-[9px] font-bold bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                <AlertTriangle className="w-2.5 h-2.5" /> VENCIDO
+                              </span>
+                            )}
+                            {t.icono}
+                            <p className="text-[11px] text-center mb-1 font-medium" style={{ color: 'var(--color-texto-secundario)' }}>{t.label}</p>
+                            {editando ? (
+                              <input value={(formEdit as any)[t.key] || ''} onChange={e => setFormEdit({ ...formEdit, [t.key]: e.target.value })} className="w-full max-w-[60px] text-center bg-transparent border-b-2 font-bold outline-none focus:border-blue-500 text-sm" style={{ borderColor: 'var(--color-primary-500)' }} placeholder="—" />
+                            ) : (
+                              <span className={`font-bold text-base ${!t.valor ? 'opacity-40 text-xs' : ''} ${vencido ? 'text-red-400' : ''}`}>{t.valor || 'N/A'}</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+          </div>
+        )}
 
             {pestana === 'epp' && (
               <div>
@@ -657,6 +727,18 @@ export default function PaginaDetalleTrabajador() {
                     ))}
                   </div>
                 ) : <EmptyState texto="Sin inspecciones asociadas" />}
+              </div>
+            )}
+
+            {pestana === 'documentos' && (
+              <div>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+                  <h3 className="font-bold text-lg">Documentos Adjuntos</h3>
+                  <button className="flex items-center gap-2 px-4 min-h-[44px] w-full sm:w-auto justify-center rounded-lg text-sm font-bold bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-transform active:scale-95 outline-none focus:ring-2 focus:ring-indigo-500/50">
+                    <Plus className="w-4 h-4" /> Subir Documento
+                  </button>
+                </div>
+                <EmptyState texto="No hay documentos subidos (Próximamente)" />
               </div>
             )}
           </div>

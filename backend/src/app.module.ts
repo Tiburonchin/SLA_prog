@@ -18,6 +18,8 @@ import { ReportesModule } from './modules/reportes/reportes.module';
 import { NotificacionesModule } from './modules/notificaciones/notificaciones.module';
 import { SyncModule } from './modules/sync/sync.module';
 import { WeatherModule } from './modules/weather/weather.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { IncidentesModule } from './modules/incidentes/incidentes.module';
 
 @Module({
   imports: [
@@ -33,7 +35,7 @@ import { WeatherModule } from './modules/weather/weather.module';
     // Rate Limiting
     ThrottlerModule.forRoot([{
       ttl: 60000,
-      limit: 20,
+      limit: 120, // Increased to allow SPA burst requests without triggering HTTP 429
     }]),
 
     // Base de datos
@@ -53,6 +55,8 @@ import { WeatherModule } from './modules/weather/weather.module';
     NotificacionesModule,
     SyncModule,
     WeatherModule,
+    DashboardModule,
+    IncidentesModule,
   ],
   providers: [
     {

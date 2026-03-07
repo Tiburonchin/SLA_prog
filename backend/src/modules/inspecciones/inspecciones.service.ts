@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CrearInspeccionDto, CerrarInspeccionDto, ActualizarChecklistDto } from './dto/inspeccion.dto';
 
@@ -15,6 +15,7 @@ export class InspeccionesService {
         },
       },
       sucursal: { select: { id: true, nombre: true } },
+      equipo: { select: { id: true, nombre: true, numeroSerie: true, estado: true, tipoEquipo: true } },
       fotos: true,
       trabajadores: {
         include: {
@@ -24,11 +25,13 @@ export class InspeccionesService {
     };
   }
 
-  async obtenerTodas(filtros: { supervisorId?: string; sucursalId?: string; estado?: string; page?: string; limit?: string }) {
+  async obtenerTodas(filtros: { supervisorId?: string; sucursalId?: string; estado?: string; tipoInspeccion?: string; equipoId?: string; page?: string; limit?: string }) {
     const where: any = {};
     if (filtros.supervisorId) where.supervisorId = filtros.supervisorId;
     if (filtros.sucursalId) where.sucursalId = filtros.sucursalId;
     if (filtros.estado) where.estado = filtros.estado;
+    if (filtros.tipoInspeccion) where.tipoInspeccion = filtros.tipoInspeccion;
+    if (filtros.equipoId) where.equipoId = filtros.equipoId;
 
     const page = filtros.page ? parseInt(filtros.page, 10) : 1;
     const limit = filtros.limit ? parseInt(filtros.limit, 10) : 20;
@@ -61,6 +64,7 @@ export class InspeccionesService {
       include: {
         supervisor: { select: { usuario: { select: { nombreCompleto: true } } } },
         sucursal: { select: { nombre: true } },
+        equipo: { select: { id: true, nombre: true } },
       },
     });
   }
@@ -72,6 +76,36 @@ export class InspeccionesService {
     });
     if (!inspeccion) throw new NotFoundException('Inspección no encontrada');
     return inspeccion;
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // REGLA HSE CRÍTICA 1: Bloqueo Pre-Uso — Autorización de Operador
+  // ────────────────────────────────────────────────────────────────────────
+  private async validarAutorizacionPreUso(equipoId: string, trabajadorIds: string[]) {
+    if (!trabajadorIds || trabajadorIds.length === 0) return;
+
+    for (const trabajadorId of trabajadorIds) {
+      const autorizacion = await this.prisma.autorizacionOperador.findUnique({
+        where: { trabajadorId_equipoId: { trabajadorId, equipoId } },
+      });
+
+      if (!autorizacion || autorizacion.estado !== 'AUTORIZADO') {
+        const trabajador = await this.prisma.trabajador.findUnique({
+          where: { id: trabajadorId },
+          select: { nombreCompleto: true, dni: true },
+        });
+        throw new ForbiddenException(
+          `ALERTA HSE: El trabajador ${trabajador?.nombreCompleto ?? ''} (${trabajador?.dni ?? trabajadorId}) no está capacitado/autorizado para operar este equipo.`,
+        );
+      }
+
+      // Verificar que la autorización no esté vencida
+      if (autorizacion.fechaVencimiento && autorizacion.fechaVencimiento < new Date()) {
+        throw new ForbiddenException(
+          'ALERTA HSE: La autorización del operador ha vencido. Debe renovarse antes de operar el equipo.',
+        );
+      }
+    }
   }
 
   async crear(usuario: any, dto: CrearInspeccionDto) {
@@ -91,13 +125,35 @@ export class InspeccionesService {
     if (!supervisor) throw new NotFoundException('Supervisor no encontrado');
     if (!sucursal) throw new NotFoundException('Sucursal no encontrada');
 
-    // Crear inspección con checklist inicial (puede estar vacío)
+    const tipoInspeccion = dto.tipoInspeccion ?? 'GENERAL';
+
+    // Validar coherencia: PRE_USO/PERIODICA/POST_INCIDENTE requieren equipoId
+    if (tipoInspeccion !== 'GENERAL' && !dto.equipoId) {
+      throw new BadRequestException(
+        `Las inspecciones de tipo ${tipoInspeccion} requieren un equipoId vinculado.`,
+      );
+    }
+
+    // Validar que el equipo existe si se proporcionó
+    if (dto.equipoId) {
+      const equipo = await this.prisma.equipo.findUnique({ where: { id: dto.equipoId } });
+      if (!equipo) throw new NotFoundException('Equipo no encontrado');
+    }
+
+    // REGLA HSE 1: Verificar autorización del operador para PRE_USO
+    if (tipoInspeccion === 'PRE_USO' && dto.equipoId && dto.trabajadorIds) {
+      await this.validarAutorizacionPreUso(dto.equipoId, dto.trabajadorIds);
+    }
+
+    // Crear inspección
     const inspeccion = await this.prisma.inspeccion.create({
       data: {
         supervisorId: dto.supervisorId,
         sucursalId: dto.sucursalId,
         ubicacion: dto.ubicacion,
         tipoTrabajo: dto.tipoTrabajo,
+        tipoInspeccion,
+        equipoId: dto.equipoId,
         checklist: JSON.parse(JSON.stringify(dto.checklist || [])) as any,
         observaciones: dto.observaciones,
         estado: 'EN_PROGRESO',
@@ -151,6 +207,11 @@ export class InspeccionesService {
     });
   }
 
+  // ────────────────────────────────────────────────────────────────────────
+  // REGLA HSE CRÍTICA 2: Baja automática de equipo al cerrar PRE_USO fallida
+  // Si la inspección PRE_USO tiene ítems críticos reprobados →
+  // el equipo pasa automáticamente a EN_MANTENIMIENTO.
+  // ────────────────────────────────────────────────────────────────────────
   async cerrar(usuario: any, id: string, dto: CerrarInspeccionDto) {
     const inspeccion = await this.prisma.inspeccion.findUnique({ where: { id } });
     if (!inspeccion) throw new NotFoundException('Inspección no encontrada');
@@ -166,11 +227,28 @@ export class InspeccionesService {
       throw new BadRequestException('La inspección ya está cerrada o cancelada');
     }
 
-    return this.prisma.inspeccion.update({
+    // REGLA HSE 2: Si es PRE_USO y hay ítems reprobados → equipo a EN_MANTENIMIENTO
+    let equipoBajado = false;
+    if (inspeccion.tipoInspeccion === 'PRE_USO' && inspeccion.equipoId) {
+      const checklist = inspeccion.checklist as any[];
+      const tieneReprobados = Array.isArray(checklist) && checklist.some(
+        (item: any) => item.aprobado === false,
+      );
+
+      if (tieneReprobados) {
+        await this.prisma.equipo.update({
+          where: { id: inspeccion.equipoId },
+          data: { estado: 'EN_MANTENIMIENTO' },
+        });
+        equipoBajado = true;
+      }
+    }
+
+    const resultado = await this.prisma.inspeccion.update({
       where: { id },
       data: {
         estado: 'COMPLETADA',
-        firmaSupervisor: !!dto.firmaBase64 || true, // backwards compat if not provided
+        firmaSupervisor: !!dto.firmaBase64 || true,
         firmaBase64: dto.firmaBase64,
         latitudCierre: dto.latitudCierre,
         longitudCierre: dto.longitudCierre,
@@ -178,6 +256,9 @@ export class InspeccionesService {
       },
       include: this.includeCompleto,
     });
+
+    // Incluir bandera informativa en la respuesta
+    return { ...resultado, equipoBajadoAutomaticamente: equipoBajado };
   }
 
   async estadisticas() {
@@ -196,10 +277,11 @@ export class InspeccionesService {
       include: this.includeCompleto,
     });
 
-    let csv = '\ufeffTipo Trabajo,Ubicación,Estado,Sucursal,Supervisor,Fecha\n';
+    let csv = '\ufeffTipo Inspección,Tipo Trabajo,Ubicación,Estado,Sucursal,Equipo,Supervisor,Fecha\n';
     for (const i of inspecciones) {
       const fecha = new Date(i.creadoEn).toLocaleDateString('es-MX', { timeZone: 'UTC' });
-      csv += `"${i.tipoTrabajo}","${i.ubicacion}","${i.estado}","${i.sucursal?.nombre}","${i.supervisor?.usuario?.nombreCompleto}","${fecha}"\n`;
+      const equipoNombre = i.equipo?.nombre ?? 'N/A';
+      csv += `"${i.tipoInspeccion}","${i.tipoTrabajo}","${i.ubicacion}","${i.estado}","${i.sucursal?.nombre}","${equipoNombre}","${i.supervisor?.usuario?.nombreCompleto}","${fecha}"\n`;
     }
     return csv;
   }

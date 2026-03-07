@@ -55,3 +55,76 @@ La estructura de datos (`schema.prisma`) ha sido fuertemente vitaminada para mod
 ## 5. Notas de TSDoc (Regla HSE-DOCS)
 
 Al igual que en los demás módulos del ecosistema, los servicios de backend y los store de React/Zustand asociados a las sucursales cuentan con documentación `TSDoc` auto-generable, especificando la estructura de los payloads de los campos `JSONB` y las mecánicas del motor de alertas (Cron).
+
+---
+
+## 6. Expansión Sprint 3.1 — Resumen Técnico (2026-03-06)
+
+Esta sección documenta los cambios estructurales introducidos en el Sprint Estabilización (Fase 3.1) para registrar el alcance exacto de la expansión del módulo.
+
+### 6.1 Nuevos Campos en el Modelo `Sucursal` (schema.prisma)
+
+El modelo fue expandido de ~10 campos base a **35+ campos** agrupados en las siguientes categorías:
+
+| Categoría | Campos representativos |
+| :-------- | :---------------------- |
+| **Identificadores INDECI** | `codigoEstablecimientoINDECI`, `numeroCertificadoDC`, `vencimientoCertificadoDC` |
+| **Infraestructura** | `aforoMaximo`, `areaM2`, `numeroPisos`, `anoConstruccion`, `materialConstruccion` |
+| **Riesgo y Clasificación** | `nivelRiesgo (NivelRiesgo enum)`, `categoriaIncendio (CategoriaIncendio enum)`, `tipoInstalacion (TipoInstalacion enum)`, `zonaRiesgoSismico (Int 1-4)` |
+| **SUNAFIL** | `ultimaInspeccionSUNAFIL`, `resultadoInspeccionSUNAFIL (ResultadoInspeccionSUNAFIL enum)`, `observacionesSUNAFIL` |
+| **Emergencias** | `cantidadExtintores`, `tieneDea`, `cantidadBotiquines`, `fechaUltimoSimulacro`, `fechaVencimientoPlanEmergencia` |
+| **Contacto SST** | `responsableSSTNombre`, `responsableSSTTelefono`, `telefonoEmergenciaSede`, `telefonoMedicoOcupacional` |
+| **JSONB Dinámicos** | `brigadasEmergencia (Json)`, `peligrosIdentificados (Json)` |
+| **Códigos sectoriales** | `codigoCIIU`, `actividadEconomica` |
+
+### 6.2 DTOs Actualizados
+
+- **`CrearSucursalDto`**: Reescrito desde ~35 líneas a ~340 líneas. Incluye clases anidadas `BrigadaEmergenciaDto` y `PeligroIdentificadoDto` con `@ValidateNested({ each: true }) @Type(...)` para validar los arrays JSONB a nivel de campo.
+- **`ActualizarSucursalDto`**: Extiende `PartialType(CrearSucursalDto)` — todos los campos son opcionales en PUT/PATCH.
+- **Enums importados directamente desde `@prisma/client`**: evita duplicación de definiciones.
+
+### 6.3 Motor Cron — Regla de Alertas
+
+| Umbral | Comportamiento |
+| :----- | :------------- |
+| 90 días antes del vencimiento | `Logger.warn` + `Notificacion.createMany` para todos los usuarios con rol `COORDINADOR` activos |
+| 30 días antes del vencimiento | Ídem — tono más urgente en el mensaje |
+| 7 días antes del vencimiento | Ídem — mensaje de alerta crítica |
+
+- **Cron expression (producción):** `'0 0 8 * * *'` (08:00 AM diario)
+- **Cron expression (testing):** `'*/10 * * * * *'` (cada 10 segundos — cambiar temporalmente en `sucursales-alertas.service.ts`)
+- Los errores de persistencia de notificaciones son capturados silenciosamente (`try/catch` interno) para **no interrumpir el ciclo Cron** ante fallos de BD transitorios.
+
+---
+
+## 7. Manejo de Errores y Casos Extremos (Edge Cases)
+
+### 7.1 Capa de API / Backend
+
+| Condición | Respuesta | Capa |
+| :-------- | :-------- | :--- |
+| `POST /sucursales` con `codigoEstablecimientoINDECI` duplicado | `409 Conflict` — `PrismaExceptionFilter` atrapa `P2002` | `PrismaExceptionFilter` (global) |
+| `brigadasEmergencia` con estructura de objeto inválida (campo faltante) | `400 Bad Request` — `ValidationPipe` rechaza el DTO anidado; devuelve array de errores de validación por campo | `ValidationPipe` (global) |
+| Payload con campo desconocido (ej. `"hackerField": true`) | `400 Bad Request` — `ValidationPipe` con `forbidNonWhitelisted: true` | `ValidationPipe` (global) |
+| `DELETE` o desactivación lógica de sucursal con trabajadores activos vinculados | `400 Bad Request` — `PrismaExceptionFilter` atrapa `P2003` (FK constraint de `Trabajador.sucursalId`) al intentar borrar | `PrismaExceptionFilter` (global) |
+| `GET /sucursales/:id` con UUID inexistente | `404 Not Found` — `P2025` atrapado | `PrismaExceptionFilter` (global) |
+| Cron job falla al conectarse a BD (ej. PostgreSQL caído) | El error es logueado con `Logger.error()` pero **no mata el proceso NestJS**. El siguiente ciclo Cron intentará de nuevo. | `SucursalesAlertasService` (try/catch) |
+| Enums enviados con valor fuera del set (ej. `"nivelRiesgo": "EXTREMO"`) | `400 Bad Request` — `@IsEnum(NivelRiesgo)` en el DTO rechaza el valor | `ValidationPipe` (global) |
+| `zonaRiesgoSismico` con valor `0` o `5` (fuera del rango 1-4) | `400 Bad Request` — `@Min(1) @Max(4)` en el DTO | `ValidationPipe` (global) |
+
+### 7.2 Error de Compilación TypeScript — Patrón JSONB
+
+> **Cuándo ocurre:** Al actualizar el `schema.prisma` y agregar campos `Json`, si el client Prisma no es regenerado (`npx prisma generate`), el DTO no puede importar los enums nuevos y TypeScript falla con `Module '"@prisma/client"' has no exported member`.
+
+> **Solución permanente:** El patrón de cast `as unknown as Prisma.InputJsonValue` en el servicio desacopla el tipo tipado del DTO del tipo opaco de Prisma, eliminando los errores de asignación bajo modo estricto. Ver `sucursales.service.ts` como referencia canónica.
+
+### 7.3 Casos de Estado Nulo (Frontend)
+
+| Condición | Comportamiento en UI |
+| :-------- | :------------------- |
+| `nivelRiesgo` es `null` | `BadgeRiesgo` muestra badge neutro gris sin lanzar error |
+| `vencimientoCertificadoDC` es `null` | `AlertaDC` muestra `—` en lugar de fecha; `diasHasta()` retorna `null` sin producir `NaN` |
+| `brigadasEmergencia` es `[]` o `null` | `GridBrigadas` muestra estado vacío ("Sin brigadas registradas") en lugar de una tableau vacío |
+| `peligrosIdentificados` es `[]` o `null` | `GridPeligros` muestra estado vacío ("Sin peligros registrados") |
+| `telefonoEmergenciaSede` es `null` | El botón `href="tel:..."` del header no se renderiza (renderizado condicional `{telefono && <a href=...>}`) |
+

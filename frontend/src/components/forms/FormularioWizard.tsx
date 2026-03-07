@@ -171,7 +171,7 @@ export default function FormularioWizard({
         {/* Footer con botones (sticky en thumb zone) */}
         <div
           className="p-4 sm:p-5 border-t flex gap-3 shrink-0"
-          style={{ borderColor: 'var(--color-borde)', backgroundColor: 'var(--color-fondo-principal)' }}
+          style={{ borderColor: 'var(--color-borde)', backgroundColor: 'var(--color-fondo-principal)', paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
         >
           {!esPrimero ? (
             <button

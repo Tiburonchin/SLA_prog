@@ -1,10 +1,21 @@
-import { Outlet, Navigate } from 'react-router-dom';
+import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth.store';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
 
 export default function Layout() {
   const { usuario, inicializando } = useAuthStore();
+  const location = useLocation();
+
+  const TITULOS: Record<string, string> = {
+    '/': 'Turno Activo',
+    '/inspecciones': 'Inspecciones',
+    '/escaner': 'Escáner QR',
+    '/amonestaciones': 'Amonestaciones',
+    '/reportes': 'Reportes',
+    '/trabajadores': 'Trabajadores',
+    '/equipos': 'Equipos',
+  };
 
   // Mientras cargarSesion verifica la sesión guardada, mostrar spinner
   // evita que RutaProtegida redirija a /login antes de tiempo
@@ -47,7 +58,7 @@ export default function Layout() {
           }}
         >
           <h2 className="text-lg font-semibold hidden sm:block">Sistema de Gestión HSE</h2>
-          <h2 className="text-lg font-semibold sm:hidden">HSE</h2>
+          <h2 className="text-lg font-semibold sm:hidden">{TITULOS[location.pathname] ?? 'HSE'}</h2>
           <div className="flex items-center gap-3">
             <div
               className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold cursor-pointer transition-transform hover:scale-105 active:scale-95 shadow-md"

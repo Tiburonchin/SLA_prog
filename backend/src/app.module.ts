@@ -20,6 +20,7 @@ import { SyncModule } from './modules/sync/sync.module';
 import { WeatherModule } from './modules/weather/weather.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { IncidentesModule } from './modules/incidentes/incidentes.module';
+import { MantenimientosModule } from './modules/mantenimientos/mantenimientos.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { IncidentesModule } from './modules/incidentes/incidentes.module';
     WeatherModule,
     DashboardModule,
     IncidentesModule,
+    MantenimientosModule,
   ],
   providers: [
     {

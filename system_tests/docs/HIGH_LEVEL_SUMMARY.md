@@ -57,6 +57,14 @@ Se encontraron vulnerabilidades operacionales en el módulo de Trabajadores en l
 - **IDOR Patcheado:** Supervisores podían acceder a la base de datos de trabajadores de sucursales fuera de su jurisdicción oficial. Se implementaron helper methods rigurosos (`validarJurisdiccion` y `verificarAccesoTrabajador` en `TrabajadoresService`) que atrapan y expulsan accesos ilícitos pasándole el request del controlador con un `403 Forbidden`. En el endpoint de listado global, los resultados ahora se pre-filtran explícitamente (`in: sucursalesPermitidas`).
 - **Loose Endpoints Cerrados:** El endpoint público y redundante `GET /api/trabajadores/estadisticas`, que exponía recuentos a todo usuario autenticado pero era ignorado por el Frontend, fue eliminado permanentemente.
 
+### Auditoría Frontend y UI Mobile (2026-03-07)
+
+Se aplicaron 14 optimizaciones de interfaz sobre la PWA móvil reportadas durante la auditoría de accesibilidad:
+
+- **Accesibilidad y Contraste:** Uso de colores de texto y fondos de alerta certificados para lectura bajo luz solar directa (ex. alertas ROJO/AMARILLO con fondos de contraste AA).
+- **Zonas Táctiles Operacionales:** Creación de \`safe-area-inset-bottom\` en wizards y ampliación de todos los hitboxes mínimos táctiles y botones de navegación inferior a 44x44. Modales de incidentes rediseñados como columnas responsivas y botones anchos.
+- **Responsividad Contextual:** Las gráficas analíticas adaptan en móviles la rotación de sus etiquetas (XAxis anguladas) y esconden nombres superpuestos para mantener dashboards operacionales estables.
+
 ---
 
 ## Cómo Escalar

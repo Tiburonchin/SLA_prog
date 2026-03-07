@@ -409,7 +409,7 @@ export default function PaginaDetalleSucursal() {
           {/* Derecha: semáforo de riesgo + KPIs */}
           <div className="flex flex-col items-start sm:items-end gap-3">
             <SemaforoRiesgo nivel={sucursal.nivelRiesgo} />
-            <div className="flex gap-4 text-center">
+            <div className="flex flex-wrap gap-x-4 gap-y-2 text-center">
               {[
                 { label: 'Trabajadores', val: sucursal._count?.trabajadores ?? 0, color: 'text-blue-400' },
                 { label: 'Supervisores', val: sucursal._count?.supervisores ?? 0,  color: 'text-purple-400' },

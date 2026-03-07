@@ -90,7 +90,7 @@ export class IncidentesService {
     this.logger.warn(
       `[Art.82 Ley29783] Incidente rápido registrado — ` +
         `Tipo: ${dto.tipo} | Trabajador: ${trabajador.nombreCompleto} | ` +
-        `Sede: ${trabajador.sucursal.nombre} | ReportadoPor: ${usuarioId} | ` +
+        `Sede: ${trabajador.sucursal?.nombre ?? 'N/A'} | ReportadoPor: ${usuarioId} | ` +
         `ID: ${incidente.id}`,
     );
 

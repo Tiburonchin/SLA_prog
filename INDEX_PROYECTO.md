@@ -1,4 +1,5 @@
 # 🤖 Índice de Documentación para Agentes de IA - Sistema HSE
+**Versión del Índice: v1.3 — Stable Release** _(Sprint Estabilización 3.1 — 2026-03-06)_
 
 Este documento es el **punto de entrada principal** para cualquier Agente de Inteligencia Artificial (IA) o desarrollador que necesite entender, auditar o extender el **Sistema de Gestión HSE**.
 
@@ -40,7 +41,7 @@ Si tu tarea está relacionada con vulnerabilidades, testing de intrusión (Pente
 | **`DOCUMENTACION_AUDITORIA.md`** | `/docs/seguridad`    | Políticas globales de seguridad, metodologías de defensa y reglas de auditoría requeridas para el código.                                                                                                 |
 | **`REGISTRO_AUDITORIAS.md`**     | `/system_tests`      | Registro unificado y bitácora de los tests automatizados ejecutados (SQL Injections, XSS, etc).                                                                                                           |
 | **`HIGH_LEVEL_SUMMARY.md`**      | `/system_tests/docs` | Resumen ejecutivo (métricas y gráficas de éxito/fallo) de la suite de pruebas de seguridad automatizada.                                                                                                  |
-| **`DETAILED_REPORT.md`**         | `/system_tests/docs` | **Reporte Técnico de Vulnerabilidades.** Contiene el desglose exhaustivo de los payloads enviados, respuestas del servidor y endpoints específicos que fallaron o pasaron. **Crítico para parchar bugs.** |
+| **`DETAILED_REPORT.md`**         | `/system_tests/docs` | **Reporte Técnico de Vulnerabilidades.** Contiene el desglose exhaustivo de los payloads enviados, respuestas del servidor y endpoints específicos que fallaron o pasaron. **Crítico para parchar bugs.** También incluye la sección _"Sprint Estabilización — Fase 3.1"_ con los bugs TS/JSONB corregidos en el sprint de Sucursales & Dashboard. |
 
 ---
 
@@ -49,8 +50,11 @@ Si tu tarea está relacionada con vulnerabilidades, testing de intrusión (Pente
 | Archivo                                   | Ubicación    | Función Principal                                                                                    |
 | :---------------------------------------- | :----------- | :--------------------------------------------------------------------------------------------------- |
 | **`README.md` (Frontend)**                | `/frontend`  | Configuración específica de la aplicación React web (Vite, Tailwind, variables de entorno frontend). |
-| **`Modulos_Trabajadores.md`**             | `/docs/core` | Documentación técnica del módulo Expediente 360° Trabajadores.                                     |
-| **`Modulos_Sucursales.md`**               | `/docs/core` | Documentación técnica del Centro de Control de Riesgos y Emergencias (Sedes).                      |
+| **`Modulos_Trabajadores.md`**             | `/docs/core` | Documentación técnica del módulo Expediente 360° Trabajadores. Incluye edge cases, errores HTTP, borrado lógico y comportamiento null-safe del frontend. |
+| **`Modulos_Sucursales.md`**               | `/docs/core` | Documentación técnica del Centro de Control de Riesgos y Emergencias (Sedes). Incluye expansión Sprint 3.1 (35 campos, JSONB, enums, Cron) y edge cases. |
+| **`DashboardModule` (backend)**           | `/backend/src/modules/dashboard` | Módulo KPI — endpoint `GET /api/dashboard/riesgos-activos`. Agrega equipos con calibración vencida, trabajadores sin EMO vigente e inspecciones abiertas por sucursal. |
+| **`IncidentesModule` (backend)**          | `/backend/src/modules/incidentes` | Módulo de reporte rápido — endpoint `POST /api/incidentes/rapido` (Art. 82 Ley 29783). Solo COORDINADOR y SUPERVISOR. Valida que el trabajador esté activo y no CESADO. |
+| **`ERD_Base_de_Datos.md`** ⭐ _v3.0_ | `/docs/core` | **Diagrama E-R-E completo** del schema PostgreSQL (Mermaid). Incluye 22 entidades, cardinalidades, políticas Soft-Delete, ENUMs, campos JSONB y tabla de índices críticos. |
 
 ---
 

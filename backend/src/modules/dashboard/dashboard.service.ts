@@ -162,7 +162,7 @@ export class DashboardService {
       dni: t.dni,
       estadoEMO: t.estadoEMO,
       fechaVencimientoEMO: t.fechaVencimientoEMO,
-      sucursal: t.sucursal.nombre,
+      sucursal: t.sucursal?.nombre ?? 'Sin sede',
       diasRestantes:
         t.fechaVencimientoEMO
           ? Math.ceil(

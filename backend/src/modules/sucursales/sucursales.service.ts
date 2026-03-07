@@ -22,7 +22,9 @@ export class SucursalesService {
       where: { id },
       include: {
         trabajadores: { where: { activo: true }, orderBy: { nombreCompleto: 'asc' } },
-        _count: { select: { trabajadores: true, inspecciones: true, amonestaciones: true } },
+        // FIX: se agrega supervisores al _count para que PaginaDetalleSucursal
+        // muestre el contador correcto (antes siempre retornaba 0).
+        _count: { select: { trabajadores: true, inspecciones: true, amonestaciones: true, supervisores: true } },
       },
     });
 

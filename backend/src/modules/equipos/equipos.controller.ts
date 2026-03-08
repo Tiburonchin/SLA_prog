@@ -26,6 +26,11 @@ export class EquiposController {
     return this.equiposService.calibracionesPorVencer();
   }
 
+  @Get(':id/mtbf')
+  async calcularMtbf(@Param('id', ParseUUIDPipe) id: string) {
+    return this.equiposService.calcularMtbf(id);
+  }
+
   @Get(':id')
   async obtenerPorId(@Param('id', ParseUUIDPipe) id: string) {
     return this.equiposService.obtenerPorId(id);

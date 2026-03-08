@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dossier Técnico – {{equipo.nombre}}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #1a1a1a; background: #fff; }
+
+    /* ── Marca de agua condicional ── */
+    {{#if marcaAgua}}
+    body::before {
+      content: "EQUIPO NO CONFORME";
+      position: fixed;
+      top: 38%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-45deg);
+      font-size: 64px;
+      font-weight: 900;
+      color: rgba(220, 38, 38, 0.18);
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 9999;
+    }
+    {{/if}}
+
+    /* ── Header ── */
+    .header { display: flex; justify-content: space-between; align-items: flex-start; padding: 16px 20px; border-bottom: 3px solid #1e3a5f; background: #f0f4f8; }
+    .header-logo { font-size: 18px; font-weight: 700; color: #1e3a5f; }
+    .header-meta { text-align: right; font-size: 10px; color: #555; }
+    .header-meta .doc-id { font-size: 11px; font-weight: 700; color: #1e3a5f; }
+
+    /* ── Semáforo de conformidad ── */
+    .estado-banner {
+      padding: 8px 20px;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+      letter-spacing: 0.5px;
+    }
+    .estado-OPERATIVO { background: #d1fae5; color: #065f46; }
+    .estado-NO_CONFORME { background: #fee2e2; color: #991b1b; }
+    .estado-ADVERTENCIA { background: #fef3c7; color: #92400e; }
+
+    /* ── Secciones ── */
+    .section { margin: 12px 20px; }
+    .section-title {
+      font-size: 12px; font-weight: 700; text-transform: uppercase;
+      color: #1e3a5f; border-left: 4px solid #1e3a5f; padding-left: 8px; margin-bottom: 8px;
+    }
+
+    /* ── Grid de ficha técnica ── */
+    .ficha-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; }
+    .ficha-item { display: flex; gap: 6px; padding: 3px 0; border-bottom: 1px dashed #e5e7eb; }
+    .ficha-label { font-weight: 600; color: #374151; min-width: 140px; }
+    .ficha-value { color: #111827; }
+
+    /* ── Tablas ── */
+    table { width: 100%; border-collapse: collapse; font-size: 10px; }
+    thead tr { background: #1e3a5f; color: #fff; }
+    thead th { padding: 5px 6px; text-align: left; font-weight: 600; }
+    tbody tr:nth-child(even) { background: #f9fafb; }
+    tbody td { padding: 4px 6px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+    .badge {
+      display: inline-block; padding: 1px 6px; border-radius: 10px; font-size: 9px; font-weight: 700;
+    }
+    .badge-ok { background: #d1fae5; color: #065f46; }
+    .badge-warn { background: #fef3c7; color: #92400e; }
+    .badge-err { background: #fee2e2; color: #991b1b; }
+
+    /* ── Footer con sello JWT ── */
+    .footer {
+      margin-top: 20px; padding: 10px 20px;
+      border-top: 2px solid #1e3a5f;
+      font-size: 9px; color: #6b7280;
+      display: flex; justify-content: space-between; align-items: flex-end;
+    }
+    .footer-seal { font-family: monospace; font-size: 8px; color: #9ca3af; word-break: break-all; max-width: 60%; }
+    .footer-meta { text-align: right; }
+    .footer-meta .gen-by { font-weight: 700; color: #374151; }
+
+    /* ── Page break ── */
+    .page-break { page-break-before: always; }
+  </style>
+</head>
+<body>
+
+  <!-- ══ HEADER ══ -->
+  <div class="header">
+    <div>
+      <div class="header-logo">SISTEMA HSE — DOSSIER TÉCNICO</div>
+      <div style="font-size:10px; color:#555; margin-top:3px;">Registro legal de equipos críticos</div>
+    </div>
+    <div class="header-meta">
+      <div class="doc-id">ID: {{dossierLogId}}</div>
+      <div>Generado: {{fechaGeneracion}}</div>
+      <div>Sucursal: {{equipo.sucursal.nombre}}</div>
+    </div>
+  </div>
+
+  <!-- ══ SEMÁFORO DE CONFORMIDAD ══ -->
+  <div class="estado-banner estado-{{estadoConformidad}}">
+    {{#if (eq estadoConformidad 'OPERATIVO')}}✅ EQUIPO CONFORME — APTO PARA OPERACIÓN{{/if}}
+    {{#if (eq estadoConformidad 'ADVERTENCIA')}}⚠️ EQUIPO CON OBSERVACIONES — REQUIERE ATENCIÓN{{/if}}
+    {{#if (eq estadoConformidad 'NO_CONFORME')}}🚫 EQUIPO NO CONFORME — {{motivoNoConformidad}}{{/if}}
+  </div>
+
+  <!-- ══ 1. FICHA TÉCNICA ══ -->
+  <div class="section">
+    <div class="section-title">1. Ficha Técnica del Equipo</div>
+    <div class="ficha-grid">
+      <div class="ficha-item"><span class="ficha-label">Nombre:</span><span class="ficha-value">{{equipo.nombre}}</span></div>
+      <div class="ficha-item"><span class="ficha-label">Número de Serie:</span><span class="ficha-value">{{equipo.numeroSerie}}</span></div>
+      <div class="ficha-item"><span class="ficha-label">Marca / Modelo:</span><span class="ficha-value">{{equipo.marca}} / {{equipo.modelo}}</span></div>
+      <div class="ficha-item"><span class="ficha-label">Tipo:</span><span class="ficha-value">{{equipo.tipoEquipo}}</span></div>
+      <div class="ficha-item"><span class="ficha-label">Ubicación:</span><span class="ficha-value">{{equipo.ubicacionFisica}}</span></div>
+      <div class="ficha-item"><span class="ficha-label">Estado Actual:</span><span class="ficha-value">{{equipo.estado}}</span></div>
+      <div class="ficha-item"><span class="ficha-label">Fecha Adquisición:</span><span class="ficha-value">{{equipo.fechaAdquisicion}}</span></div>
+      <div class="ficha-item"><span class="ficha-label">Vida Útil (meses):</span><span class="ficha-value">{{equipo.vidaUtilMeses}}</span></div>
+      <div class="ficha-item"><span class="ficha-label">Horas Operadas:</span><span class="ficha-value">{{equipo.horasOperadasActuales}} h</span></div>
+      <div class="ficha-item"><span class="ficha-label">Requiere LOTO:</span><span class="ficha-value">{{#if equipo.requiereLoto}}SÍ{{else}}NO{{/if}}</span></div>
+      <div class="ficha-item"><span class="ficha-label">EPP Obligatorio:</span><span class="ficha-value">{{equipo.eppObligatorio}}</span></div>
+      <div class="ficha-item"><span class="ficha-label">MTBF:</span><span class="ficha-value">{{#if mtbf.mtbfHoras}}{{mtbf.mtbfHoras}} h ({{mtbf.totalFallas}} fallas){{else}}Insuficiente{{/if}}</span></div>
+    </div>
+  </div>
+
+  <!-- ══ 2. HISTORIAL DE MANTENIMIENTOS ══ -->
+  <div class="section">
+    <div class="section-title">2. Historial de Mantenimientos</div>
+    {{#if mantenimientos.length}}
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Tipo</th>
+          <th>Técnico</th>
+          <th>Trabajo Realizado</th>
+          <th>LOTO</th>
+          <th>Incid.</th>
+          <th>Quedó Operativo</th>
+          <th>Certificado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each mantenimientos}}
+        <tr>
+          <td>{{this.fechaMantenimientoFmt}}</td>
+          <td>{{this.tipoMantenimiento}}</td>
+          <td>{{this.tecnicoResponsable}}</td>
+          <td>{{this.trabajoRealizado}}</td>
+          <td>{{#if this.aplicoLoto}}<span class="badge badge-ok">SÍ</span>{{else}}<span class="badge badge-err">NO</span>{{/if}}</td>
+          <td>{{#if this.generoIncidente}}<span class="badge badge-err">SÍ</span>{{else}}<span class="badge badge-ok">NO</span>{{/if}}</td>
+          <td>{{#if this.equipoQuedoOperativo}}<span class="badge badge-ok">SÍ</span>{{else}}<span class="badge badge-warn">NO</span>{{/if}}</td>
+          <td>{{#if this.certificadoUrl}}<a href="{{this.certificadoUrl}}">Ver</a>{{else}}—{{/if}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}
+    <p style="color:#6b7280; font-style:italic;">Sin registros de mantenimiento.</p>
+    {{/if}}
+  </div>
+
+  <!-- ══ 3. CALIBRACIONES ══ -->
+  <div class="section">
+    <div class="section-title">3. Historial de Calibraciones (INACAL)</div>
+    {{#if calibraciones.length}}
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha Calibración</th>
+          <th>Próxima Calibración</th>
+          <th>N° Certificado</th>
+          <th>Entidad Certificadora</th>
+          <th>Resultado</th>
+          <th>Certificado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each calibraciones}}
+        <tr>
+          <td>{{this.fechaCalibracionFmt}}</td>
+          <td>{{this.proximaCalibracionFmt}}</td>
+          <td>{{this.numeroCertificado}}</td>
+          <td>{{this.entidadCertificadora}}</td>
+          <td>
+            {{#if (eq this.estadoResultado 'APROBADO')}}<span class="badge badge-ok">APROBADO</span>{{/if}}
+            {{#if (eq this.estadoResultado 'CONDICIONAL')}}<span class="badge badge-warn">CONDICIONAL</span>{{/if}}
+            {{#if (eq this.estadoResultado 'RECHAZADO')}}<span class="badge badge-err">RECHAZADO</span>{{/if}}
+          </td>
+          <td>{{#if this.certificadoUrl}}<a href="{{this.certificadoUrl}}">Ver</a>{{else}}—{{/if}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}
+    <p style="color:#6b7280; font-style:italic;">Sin registros de calibración.</p>
+    {{/if}}
+  </div>
+
+  <!-- ══ 4. OPERADORES AUTORIZADOS ══ -->
+  <div class="section">
+    <div class="section-title">4. Operadores Autorizados</div>
+    {{#if autorizaciones.length}}
+    <table>
+      <thead>
+        <tr>
+          <th>Trabajador</th>
+          <th>DNI</th>
+          <th>Autorizado Desde</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each autorizaciones}}
+        <tr>
+          <td>{{this.trabajador.nombreCompleto}}</td>
+          <td>{{this.trabajador.dni}}</td>
+          <td>{{this.creadoEnFmt}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}
+    <p style="color:#6b7280; font-style:italic;">Sin operadores autorizados registrados.</p>
+    {{/if}}
+  </div>
+
+  <!-- ══ FOOTER CON SELLO JWT ══ -->
+  <div class="footer">
+    <div class="footer-seal">
+      <div style="font-weight:700; color:#374151; font-size:9px; margin-bottom:2px;">HASH DE INTEGRIDAD (JWT):</div>
+      {{jwtSeal}}
+    </div>
+    <div class="footer-meta">
+      <div class="gen-by">Generado por: {{generadoPor}}</div>
+      <div>ID Usuario: {{usuarioId}}</div>
+      <div>Fecha: {{fechaGeneracion}}</div>
+      <div style="margin-top:4px; font-size:8px; color:#9ca3af;">
+        Documento generado automáticamente por el Sistema HSE.<br/>
+        Válido solo con sello de integridad verificable.
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

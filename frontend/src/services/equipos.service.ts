@@ -101,6 +101,10 @@ export interface Equipo {
   puntosBloqueo?: string;
   energiasPeligrosas?: string[];
   eppObligatorio?: EppObligatorioItem[];
+  // Responsable HSE y datos técnicos legales (DS 005-2012-TR / DS 042-F)
+  coordinadorResponsable?: string;
+  telefonoEmergenciaCoordinador?: string;
+  capacidadNominalPresion?: string;
   // Relations
   sucursal?: { id: string; nombre: string };
   calibraciones?: Calibracion[];
@@ -109,6 +113,22 @@ export interface Equipo {
   ejecucionesLoto?: EjecucionLoto[];
   inspecciones?: { id: string; tipoInspeccion?: string; resultado?: string; creadoEn: string }[];
   _count?: { calibraciones: number; mantenimientos: number; autorizaciones: number };
+}
+
+export interface CreateMantenimientoDto {
+  equipoId: string;
+  tipoMantenimiento: TipoMantenimiento;
+  fechaMantenimiento: string;
+  tecnicoResponsable: string;
+  trabajoRealizado: string;
+  proximoMantenimiento?: string;
+  proveedorServicio?: string;
+  repuestosUsados?: string;
+  horasEquipoAlMomento?: number;
+  costoSoles?: number;
+  equipoFueraServicio?: boolean;
+  certificadoUrl?: string;
+  observaciones?: string;
 }
 
 export const equiposService = {
@@ -150,6 +170,11 @@ export const equiposService = {
 
   async calibracionesPorVencer(): Promise<Calibracion[]> {
     const { data } = await api.get<Calibracion[]>('/equipos/calibraciones/por-vencer');
+    return data;
+  },
+
+  async crearMantenimiento(datos: CreateMantenimientoDto): Promise<Mantenimiento> {
+    const { data } = await api.post<Mantenimiento>('/mantenimientos', datos);
     return data;
   },
 };

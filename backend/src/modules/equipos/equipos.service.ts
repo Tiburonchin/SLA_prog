@@ -48,11 +48,49 @@ export class EquiposService {
           include: { trabajador: { select: { id: true, nombreCompleto: true, dni: true } } },
           orderBy: { creadoEn: 'desc' },
         },
+        inspecciones: { orderBy: { creadoEn: 'desc' }, take: 5 },
+        ejecucionesLoto: { orderBy: { creadoEn: 'desc' }, take: 5 },
       },
     });
 
     if (!equipo) throw new NotFoundException('Equipo no encontrado');
     return equipo;
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Brecha 5: Cálculo de MTBF (Mean Time Between Failures)
+  // MTBF = Σ(períodos operativos) / número de fallas
+  // ────────────────────────────────────────────────────────────────────────
+  async calcularMtbf(equipoId: string): Promise<{ mtbfHoras: number | null; totalFallas: number; horas: number }> {
+    const equipo = await this.prisma.equipo.findUnique({ where: { id: equipoId } });
+    if (!equipo) throw new NotFoundException('Equipo no encontrado');
+
+    // Obtener mantenimientos correctivos ordenados por fecha
+    const mantenimientos = await this.prisma.mantenimiento.findMany({
+      where: {
+        equipoId,
+        tipoMantenimiento: 'CORRECTIVO',
+      },
+      orderBy: { fechaMantenimiento: 'asc' },
+      select: { fechaMantenimiento: true },
+    });
+
+    const totalFallas = mantenimientos.length;
+
+    if (totalFallas < 2) {
+      return { mtbfHoras: null, totalFallas, horas: equipo.horasOperadasActuales ?? 0 };
+    }
+
+    // Calcular tiempo total operativo entre la primera y última falla
+    const primeraFalla = mantenimientos[0].fechaMantenimiento;
+    const ultimaFalla = mantenimientos[totalFallas - 1].fechaMantenimiento;
+    const msOperativos = ultimaFalla.getTime() - primeraFalla.getTime();
+    const horasOperativas = msOperativos / (1000 * 60 * 60);
+
+    // MTBF = horas operativas / (fallas - 1) intervalos
+    const mtbfHoras = Math.round((horasOperativas / (totalFallas - 1)) * 100) / 100;
+
+    return { mtbfHoras, totalFallas, horas: equipo.horasOperadasActuales ?? 0 };
   }
 
   // Buscar equipo por tag NFC

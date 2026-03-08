@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CrearMantenimientoDto } from './dto/mantenimiento.dto';
+import { EstadoEquipo } from '@prisma/client';
 
 @Injectable()
 export class MantenimientosService {
@@ -51,7 +52,7 @@ export class MantenimientosService {
     const fechaMant = new Date(dto.fechaMantenimiento);
     const proximoMant = dto.proximoMantenimiento ? new Date(dto.proximoMantenimiento) : undefined;
 
-    // Crear el registro de mantenimiento
+    // Crear el registro de mantenimiento con campos HSE legales
     const mantenimiento = await this.prisma.mantenimiento.create({
       data: {
         equipoId: dto.equipoId,
@@ -65,20 +66,55 @@ export class MantenimientosService {
         horasEquipoAlMomento: dto.horasEquipoAlMomento,
         costoSoles: dto.costoSoles,
         equipoFueraServicio: dto.equipoFueraServicio,
+        equipoQuedoOperativo: dto.equipoQuedoOperativo ?? true,
         certificadoUrl: dto.certificadoUrl,
         observaciones: dto.observaciones,
+        // Campos HSE legales (ISO 45001 / ISO 14001)
+        aplicoLoto: dto.aplicoLoto,
+        generoIncidente: dto.generoIncidente,
+        incidenteId: dto.generoIncidente ? dto.incidenteId : undefined,
+        certificacionTecnico: dto.certificacionTecnico,
+        disposicionResiduos: dto.disposicionResiduos,
       },
       include: { equipo: { select: { id: true, nombre: true, estado: true } } },
     });
 
-    // Sincronizar próximo mantenimiento en el equipo si se proporcionó
+    // Sincronizar estado del equipo según resultado del mantenimiento
     const equipoUpdate: any = {};
     if (proximoMant) equipoUpdate.proximoMantenimiento = proximoMant;
     if (dto.horasEquipoAlMomento != null) equipoUpdate.horasOperadasActuales = dto.horasEquipoAlMomento;
-    if (dto.equipoFueraServicio) equipoUpdate.estado = 'EN_MANTENIMIENTO';
+
+    if (dto.equipoFueraServicio) {
+      // El equipo sigue fuera de servicio → EN_MANTENIMIENTO
+      equipoUpdate.estado = EstadoEquipo.EN_MANTENIMIENTO;
+    } else if (dto.equipoQuedoOperativo === true) {
+      // Brecha 4: Si el equipo quedó operativo, restaurar estado bloqueado por mantenimiento o inspección
+      const estadoActual = equipo.estado as EstadoEquipo;
+      if (
+        estadoActual === EstadoEquipo.EN_MANTENIMIENTO ||
+        estadoActual === EstadoEquipo.BLOQUEADO_INSPECCION
+      ) {
+        equipoUpdate.estado = EstadoEquipo.OPERATIVO;
+        equipoUpdate.esBloqueoAutomatico = false;
+        equipoUpdate.motivoBloqueoAuto = null;
+        equipoUpdate.fechaBloqueoAuto = null;
+      }
+    }
 
     if (Object.keys(equipoUpdate).length > 0) {
       await this.prisma.equipo.update({ where: { id: dto.equipoId }, data: equipoUpdate });
+    }
+
+    // Brecha 4 – Auto-cerrar LOTO si el trabajo concluyó exitosamente
+    if (equipo.requiereLoto && dto.equipoQuedoOperativo !== false) {
+      await this.prisma.ejecucionLoto.updateMany({
+        where: { equipoId: dto.equipoId, estadoEjecucion: 'BLOQUEADO' },
+        data: {
+          estadoEjecucion: 'DESBLOQUEADO',
+          fechaDesbloqueo: new Date(),
+          observaciones: `Cierre automático por registro de mantenimiento. Técnico: ${dto.tecnicoResponsable}`,
+        },
+      });
     }
 
     return mantenimiento;

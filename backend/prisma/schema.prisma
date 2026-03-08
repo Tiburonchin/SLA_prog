@@ -40,6 +40,8 @@ enum TipoExamenMedico {
 enum EstadoEquipo {
   OPERATIVO
   EN_MANTENIMIENTO
+  BLOQUEADO_CERTIFICADO // Bloqueado automáticamente por CRON — certificación vencida
+  BLOQUEADO_INSPECCION // Bloqueado automáticamente por falla crítica en checklist pre-uso
   BAJA_TECNICA
 }
 
@@ -150,9 +152,11 @@ model Usuario {
   deletedAt      DateTime? // null = activo | fecha = eliminado lógicamente
 
   // Relaciones
-  supervisor     Supervisor?
-  registrosAudit RegistroAuditoria[]
-  notificaciones Notificacion[]
+  supervisor        Supervisor?
+  registrosAudit    RegistroAuditoria[]
+  notificaciones    Notificacion[]
+  documentosSubidos DocumentoEquipo[]   @relation("DocumentosSubidos")
+  dossierExports    DossierExportLog[]  @relation("DossierExports")
 
   @@index([activo])
   @@index([deletedAt])
@@ -388,19 +392,39 @@ model Equipo {
   // Estructura: [{"tipo":"CASCO","especificacion":"Clase E","obligatorio":true}, ...]
   eppObligatorio Json? // Lista de EPP requeridos para operar este equipo específico
 
+  // ─── RESPONSABLE HSE Y DATOS TÉCNICOS LEGALES (Auditoría HSE - Marzo 2026) ──
+  // DS 005-2012-TR Art. 26 lit. f): identificar al responsable de seguridad
+  coordinadorResponsable        String? // Nombre del coordinador HSE asignado a este equipo
+  telefonoEmergenciaCoordinador String? // Teléfono de emergencia del coordinador HSE
+  // DS 042-F / ASME VIII: capacidad nominal o presión máxima de trabajo declarada
+  capacidadNominalPresion       String? // Ej: "150 BAR", "5 Ton", "1200 RPM"
+
+  // ─── BLOQUEO AUTOMÁTICO DEL SISTEMA (CRON / Regla de negocio) ────────────
+  esBloqueoAutomatico Boolean   @default(false) // true = estado cambiado por CRON o regla automática
+  motivoBloqueoAuto   String? // Ej: "Certificación INACAL vencida el 2026-03-01"
+  fechaBloqueoAuto    DateTime? // Timestamp del bloqueo automático
+
+  // ─── VÍNCULO CON MATRIZ IPC (Pestaña 1 — Matriz de Riesgos) ─────────────
+  matrizIpcId String? // FK a MatrizIpc — muestra la matriz de riesgos del equipo
+
   // Relaciones
   sucursal        Sucursal?              @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  matrizIpc       MatrizIpc?             @relation(fields: [matrizIpcId], references: [id], onDelete: SetNull)
   calibraciones   Calibracion[]
   mantenimientos  Mantenimiento[]
   autorizaciones  AutorizacionOperador[]
   ejecucionesLoto EjecucionLoto[]
   inspecciones    Inspeccion[]
+  dossierLogs     DossierExportLog[]
+  documentos      DocumentoEquipo[]
 
   @@index([estado])
   @@index([sucursalId]) // Filtrar equipos por sede
   @@index([tipoEquipo]) // Clasificar para auditorías
   @@index([deletedAt])
   @@index([proximoMantenimiento]) // Alertas de mantenimiento próximo
+  @@index([estado, esBloqueoAutomatico]) // Dashboard de bloqueados automáticos
+  @@index([matrizIpcId])
   @@map("equipos")
 }
 
@@ -415,9 +439,12 @@ model Calibracion {
 
   // ─── CAMPOS INACAL / NTP-ISO/IEC 17025 (requeridos para validez legal) ────
   // MIGRACIÓN FASE 1: nullable para registros históricos. Nuevas calibraciones deben incluirlo.
-  entidadCertificadora String? // "INACAL", "SGS", "Bureau Veritas" — requerido en nuevas altas
-  numeroCertificado    String? // N° de serie del certificado (trazabilidad INACAL)
-  estadoResultado      EstadoCalibracion @default(CONFORME) // ¿El equipo pasó la calibración?
+  entidadCertificadora     String? // "INACAL", "SGS", "Bureau Veritas" — requerido en nuevas altas
+  numeroCertificado        String? // N° de serie del certificado (trazabilidad INACAL)
+  estadoResultado          EstadoCalibracion @default(CONFORME) // ¿El equipo pasó la calibración?
+  // NTP-ISO/IEC 17025: N° de acreditación del laboratorio calibrador ante INACAL
+  // Sin este campo, el certificado carece de trazabilidad legal ante SUNAFIL/Metrología.
+  numeroAcreditacionInacal String? // Ej: "LE-038", "LC-047" — emitido por INACAL
 
   // Relaciones
   equipo Equipo @relation(fields: [equipoId], references: [id], onDelete: Restrict) // SEC: Historial de calibraciones es inmutable
@@ -441,6 +468,9 @@ model MatrizIpc {
   activo                   Boolean  @default(true)
   creadoEn                 DateTime @default(now())
   actualizadoEn            DateTime @updatedAt
+
+  // Relaciones
+  equipos Equipo[] // Equipos vinculados a esta matriz de riesgos (Pestaña 1)
 
   @@unique([cargo, ubicacion])
   @@index([cargo]) // Búsqueda por puesto de trabajo
@@ -647,8 +677,9 @@ model Incidente {
   deletedAt      DateTime?
 
   // Relaciones
-  trabajador   Trabajador    @relation(fields: [trabajadorId], references: [id], onDelete: Restrict)
-  amonestacion Amonestacion? @relation(fields: [amonestacionId], references: [id], onDelete: SetNull)
+  trabajador     Trabajador      @relation(fields: [trabajadorId], references: [id], onDelete: Restrict)
+  amonestacion   Amonestacion?   @relation(fields: [amonestacionId], references: [id], onDelete: SetNull)
+  mantenimientos Mantenimiento[] // Relación inversa: mantenimientos que derivaron de este incidente
 
   @@index([trabajadorId])
   @@index([fechaEvento])
@@ -702,15 +733,31 @@ model Mantenimiento {
   horasEquipoAlMomento Float? // Odómetro en horas al momento del servicio
   costoSoles           Float? // Para análisis costo-beneficio y presupuesto
   equipoFueraServicio  Boolean           @default(false) // ¿El equipo quedó fuera de servicio?
-  certificadoUrl       String? // Orden de trabajo firmada / informe técnico
+  equipoQuedoOperativo Boolean           @default(true) // ¿El equipo quedó operativo tras la intervención?
+  certificadoUrl       String? // Orden de trabajo firmada / informe técnico — OBLIGATORIO en producción
   observaciones        String?
   creadoEn             DateTime          @default(now())
 
-  equipo Equipo @relation(fields: [equipoId], references: [id], onDelete: Restrict) // Historial inmutable
+  // ─── CAMPOS HSE LEGALES — FASE 4 ─────────────────────────────────────────
+  // OSHA 1910.147: Certificación de protocolo LOTO aplicado
+  aplicoLoto           Boolean @default(false)
+  // Ley 29783 Art. 82: Vinculación con reporte de incidente si la falla generó accidente
+  generoIncidente      Boolean @default(false)
+  incidenteId          String? // FK a Incidente — poblado si generoIncidente=true
+  // DS 024-2016-EM: Certificación técnica del interventor
+  certificacionTecnico String? // Ej: "NFPA 70E Arco Eléctrico", "ASME B31.3"
+  // ISO 14001:2015 Cláusula 8.1: Gestión de residuos peligrosos generados
+  disposicionResiduos  String? // Ej: "Aceites entregados a EPS-RS Mant. Industrial SAC"
+
+  // Relaciones
+  equipo    Equipo     @relation(fields: [equipoId], references: [id], onDelete: Restrict) // Historial inmutable
+  incidente Incidente? @relation(fields: [incidenteId], references: [id], onDelete: SetNull)
 
   @@index([equipoId])
   @@index([tipoMantenimiento])
   @@index([fechaMantenimiento])
+  @@index([generoIncidente]) // Dashboard: mantenimientos con incidentes asociados
+  @@index([aplicoLoto]) // Auditoría de cumplimiento LOTO
   @@map("mantenimientos")
 }
 
@@ -777,4 +824,67 @@ model Notificacion {
   destinatario Usuario @relation(fields: [destinatarioId], references: [id], onDelete: Cascade)
 
   @@map("notificaciones")
+}
+
+// ===== MÓDULO 4c: TRAZABILIDAD DE EXPORTACIONES Y DOCUMENTOS =====
+
+/// Tipos de documento técnico/legal vinculados a un equipo.
+enum TipoDocumentoEquipo {
+  MANUAL_FABRICANTE // Manual de operación oficial del fabricante
+  NORMA_APLICABLE // Norma ISO, ASME, OSHA referenciada
+  CERTIFICADO_FABRICACION // Certificado de fabricación y primera puesta en marcha
+  CERTIFICADO_PRUEBA_CARGA // Para equipos de izaje (grúas, eslingas) — ASME B30
+  FICHA_TECNICA // Especificaciones técnicas resumidas
+  PROCEDIMIENTO_LOTO // Procedimiento LOTO específico del equipo (OSHA 1910.147)
+  LISTA_REPUESTOS // Catálogo de repuestos del fabricante
+  OTRO
+}
+
+/// Repositorio de documentos técnico-legales vinculados a un equipo.
+/// Soporta la Pestaña 4 (Certificaciones y Manuales) del Expediente 360°.
+model DocumentoEquipo {
+  id               String              @id @default(uuid())
+  equipoId         String
+  nombre           String // Ej: "Manual de Operación v2.3"
+  tipo             TipoDocumentoEquipo
+  archivoUrl       String // URL a S3 / Azure Blob
+  version          String? // Ej: "Rev. 3"
+  emitidoPor       String? // Fabricante, INACAL, SUNAFIL, etc.
+  fechaEmision     DateTime?
+  fechaVencimiento DateTime? // Para certificados que caducan
+  observaciones    String?
+  activo           Boolean             @default(true)
+  creadoEn         DateTime            @default(now())
+  subidoPorId      String? // FK a Usuario — trazabilidad de quién subió
+
+  equipo    Equipo   @relation(fields: [equipoId], references: [id], onDelete: Restrict)
+  subidoPor Usuario? @relation("DocumentosSubidos", fields: [subidoPorId], references: [id], onDelete: SetNull)
+
+  @@index([equipoId])
+  @@index([tipo])
+  @@index([fechaVencimiento]) // Alertas de documentos por vencer
+  @@map("documentos_equipo")
+}
+
+/// Registro inmutable de cada generación de Dossier PDF por equipo.
+/// Trazabilidad legal: "¿Quién descargó el expediente y en qué estado estaba el equipo?"
+model DossierExportLog {
+  id                     String   @id @default(uuid())
+  equipoId               String
+  usuarioId              String
+  fechaExportacion       DateTime @default(now())
+  estadoEquipoAlExportar String // Snapshot del EstadoEquipo en ese instante
+  calibracionVigente     Boolean // Snapshot: ¿tenía calibración vigente?
+  fueNoConforme          Boolean  @default(false) // ¿Se generó con marca de agua roja?
+  jwtSnapshot            String? // HMAC-SHA256 del payload de integridad del dossier
+  ipCliente              String? // IP del cliente (trazabilidad adicional)
+  userAgent              String? // Dispositivo/browser del usuario
+
+  equipo  Equipo  @relation(fields: [equipoId], references: [id], onDelete: Restrict)
+  usuario Usuario @relation("DossierExports", fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@index([equipoId])
+  @@index([usuarioId])
+  @@index([fechaExportacion])
+  @@map("dossier_export_logs")
 }

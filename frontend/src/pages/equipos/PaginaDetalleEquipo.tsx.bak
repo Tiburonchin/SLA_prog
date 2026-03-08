@@ -1,19 +1,17 @@
 // Expediente 360° del Equipo — v2.0.0
 // Diseño: HSE-auditor-ux + UI-frontend | Sistema HSE | Marzo 2026
 import { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   equiposService,
   type Equipo,
   type Mantenimiento,
-  type TipoMantenimiento,
   type AutorizacionOperador,
   type EjecucionLoto,
   type Calibracion,
 } from '../../services/equipos.service';
 import {
-  ArrowLeft, Wrench, CheckCircle, AlertTriangle, Check,
+  ArrowLeft, Wrench, CheckCircle, AlertTriangle,
   Plus, Calendar, FileText, Edit3, Save, X, Trash2, Wifi,
   Shield, Zap, Lock, Unlock, Settings, Users, ClipboardCheck,
   FlaskConical, MapPin, Building2, Clock, Activity,
@@ -277,28 +275,6 @@ export default function PaginaDetalleEquipo() {
   // Deactive
   const [desactivando, setDesactivando] = useState(false);
 
-  // Mantenimiento modal
-  const FORM_MANT_INICIAL = {
-    tipoMantenimiento: 'PREVENTIVO' as TipoMantenimiento,
-    fechaMantenimiento: '',
-    tecnicoResponsable: '',
-    trabajoRealizado: '',
-    proximoMantenimiento: '',
-    proveedorServicio: '',
-    repuestosUsados: '',
-    horasEquipoAlMomento: '',
-    costoSoles: '',
-    equipoFueraServicio: false,
-    certificadoUrl: '',
-    observaciones: '',
-    lotoVerificado: false,
-    incidenteVinculado: false,
-  };
-  const [modalMant, setModalMant] = useState(false);
-  const [formMant, setFormMant] = useState(FORM_MANT_INICIAL);
-  const [guardandoMant, setGuardandoMant] = useState(false);
-  const [errorMant, setErrorMant] = useState('');
-
   // NFC
   const { leerNfc, cancelarLectura, error: nfcError, soportado } = useNfcReader();
   const [modalNfc, setModalNfc] = useState(false);
@@ -361,43 +337,6 @@ export default function PaginaDetalleEquipo() {
     try { await equiposService.desactivar(id); cargar(); }
     catch (err) { console.error(err); }
     finally { setDesactivando(false); }
-  };
-
-  const registrarMantenimiento = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!id || !equipo) return;
-    // Bloquear si LOTO requerido y no fue verificado en el form
-    if (equipo.requiereLoto && !formMant.lotoVerificado) {
-      setErrorMant('Este equipo requiere LOTO. Confirme abajo que el procedimiento de Bloqueo/Etiquetado fue aplicado antes de continuar.');
-      return;
-    }
-    setGuardandoMant(true);
-    setErrorMant('');
-    try {
-      await equiposService.crearMantenimiento({
-        equipoId: id,
-        tipoMantenimiento: formMant.tipoMantenimiento,
-        fechaMantenimiento: formMant.fechaMantenimiento,
-        tecnicoResponsable: formMant.tecnicoResponsable,
-        trabajoRealizado: formMant.trabajoRealizado,
-        proximoMantenimiento: formMant.proximoMantenimiento || undefined,
-        proveedorServicio: formMant.proveedorServicio || undefined,
-        repuestosUsados: formMant.repuestosUsados || undefined,
-        horasEquipoAlMomento: formMant.horasEquipoAlMomento ? Number(formMant.horasEquipoAlMomento) : undefined,
-        costoSoles: formMant.costoSoles ? Number(formMant.costoSoles) : undefined,
-        equipoFueraServicio: formMant.equipoFueraServicio,
-        certificadoUrl: formMant.certificadoUrl || undefined,
-        observaciones: formMant.observaciones || undefined,
-      });
-      setModalMant(false);
-      setFormMant(FORM_MANT_INICIAL);
-      setPestana('mantenimiento');
-      cargar();
-    } catch (err: any) {
-      setErrorMant(err.response?.data?.message ?? 'Error al registrar el mantenimiento. Verifique los datos e intente de nuevo.');
-    } finally {
-      setGuardandoMant(false);
-    }
   };
 
   const vincularNfc = async () => {
@@ -503,7 +442,7 @@ export default function PaginaDetalleEquipo() {
           <button
             className="flex items-center gap-2 px-3 min-h-[44px] rounded-lg text-sm font-medium transition text-white"
             style={{ background: 'linear-gradient(135deg, var(--color-primary-600), var(--color-primary-800))' }}
-            onClick={() => { setErrorMant(''); setFormMant(FORM_MANT_INICIAL); setModalMant(true); }}
+            onClick={() => setPestana('mantenimiento')}
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Registrar Mant.</span>
@@ -1501,297 +1440,6 @@ export default function PaginaDetalleEquipo() {
 
         </div>{/* end right column */}
       </div>{/* end grid layout */}
-
-      {/* ══ DRAWER: Registrar Mantenimiento ══════════════════════════════ */}
-      {createPortal(
-        <div className="fixed inset-0 z-[70] pointer-events-none" style={{ visibility: modalMant ? 'visible' : 'hidden' }}>
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 transition-opacity duration-300 pointer-events-auto"
-            style={{ backgroundColor: 'rgba(0,0,0,0.65)', opacity: modalMant ? 1 : 0 }}
-            onClick={!guardandoMant ? () => { setModalMant(false); setErrorMant(''); } : undefined}
-          />
-          {/* Panel */}
-          <div
-            className="absolute top-0 right-0 h-full w-full max-w-lg flex flex-col shadow-2xl pointer-events-auto"
-            style={{
-              backgroundColor: 'var(--color-fondo-principal)',
-              borderLeft: '1px solid var(--color-borde)',
-              transform: modalMant ? 'translateX(0)' : 'translateX(100%)',
-              transition: 'transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
-            }}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 h-16 border-b shrink-0" style={{ borderColor: 'var(--color-borde)' }}>
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.15)' }}>
-                  <Wrench className="w-5 h-5" style={{ color: 'var(--color-primary-400)' }} />
-                </div>
-                <div>
-                  <h2 className="font-bold text-base">Registrar Mantenimiento</h2>
-                  <p className="text-xs truncate max-w-[220px]" style={{ color: 'var(--color-texto-tenue)' }}>{equipo.nombre} · {equipo.numeroSerie}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => { setModalMant(false); setErrorMant(''); }}
-                disabled={guardandoMant}
-                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-                aria-label="Cerrar"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Body */}
-            <form onSubmit={registrarMantenimiento} className="flex-1 overflow-y-auto p-6 space-y-6">
-
-              {/* ── Sección 1: Datos de la intervención ── */}
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--color-texto-tenue)' }}>Datos de la Intervención</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--color-texto-secundario)' }}>Tipo de Intervención <span className="text-red-500">*</span></label>
-                    <select
-                      required
-                      value={formMant.tipoMantenimiento}
-                      onChange={e => setFormMant({ ...formMant, tipoMantenimiento: e.target.value as TipoMantenimiento })}
-                      className="w-full px-4 py-3 rounded-lg border bg-transparent outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none"
-                      style={{ borderColor: 'var(--color-borde)' }}
-                    >
-                      <option value="PREVENTIVO">Preventivo</option>
-                      <option value="CORRECTIVO">Correctivo</option>
-                      <option value="PREDICTIVO">Predictivo</option>
-                      <option value="OVERHAUL">Overhaul / Revisión Mayor</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--color-texto-secundario)' }}>Fecha de Intervención <span className="text-red-500">*</span></label>
-                    <input
-                      type="date"
-                      required
-                      value={formMant.fechaMantenimiento}
-                      onChange={e => setFormMant({ ...formMant, fechaMantenimiento: e.target.value })}
-                      className="w-full px-4 py-3 rounded-lg border bg-transparent outline-none focus:ring-2 focus:ring-blue-500/50"
-                      style={{ borderColor: 'var(--color-borde)' }}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--color-texto-secundario)' }}>Técnico Responsable <span className="text-red-500">*</span></label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Nombre completo y certificación..."
-                      value={formMant.tecnicoResponsable}
-                      onChange={e => setFormMant({ ...formMant, tecnicoResponsable: e.target.value })}
-                      className="w-full px-4 py-3 rounded-lg border bg-transparent outline-none focus:ring-2 focus:ring-blue-500/50"
-                      style={{ borderColor: 'var(--color-borde)' }}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--color-texto-secundario)' }}>Empresa / Proveedor de Servicio</label>
-                    <input
-                      type="text"
-                      placeholder="Razón social del contratista..."
-                      value={formMant.proveedorServicio}
-                      onChange={e => setFormMant({ ...formMant, proveedorServicio: e.target.value })}
-                      className="w-full px-4 py-3 rounded-lg border bg-transparent outline-none focus:ring-2 focus:ring-blue-500/50"
-                      style={{ borderColor: 'var(--color-borde)' }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* ── Sección 2: Trabajo realizado ── */}
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--color-texto-tenue)' }}>Descripción Técnica</h3>
-                <div>
-                  <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--color-texto-secundario)' }}>Trabajo Realizado <span className="text-red-500">*</span></label>
-                  <textarea
-                    required
-                    rows={3}
-                    placeholder="Describa la intervención, siguiendo el manual del fabricante..."
-                    value={formMant.trabajoRealizado}
-                    onChange={e => setFormMant({ ...formMant, trabajoRealizado: e.target.value })}
-                    className="w-full px-4 py-3 rounded-lg border bg-transparent outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
-                    style={{ borderColor: 'var(--color-borde)' }}
-                  />
-                </div>
-              </div>
-
-              {/* Alerta correctivo: ¿generó incidente? */}
-              {formMant.tipoMantenimiento === 'CORRECTIVO' && (
-                <div className="flex items-start gap-3 p-4 rounded-xl border border-red-500/30 animate-fade-in" style={{ background: 'rgba(239,68,68,0.08)' }}>
-                  <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm font-bold text-red-400">Verificación HSE — Mantenimiento Correctivo</p>
-                    <p className="text-xs text-red-300/70 mt-1">Si esta falla originó un accidente o incidente, debe documentarse en el módulo de Incidentes y vincular el reporte.</p>
-                    <label className="flex items-center gap-2 mt-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formMant.incidenteVinculado}
-                        onChange={e => setFormMant({ ...formMant, incidenteVinculado: e.target.checked })}
-                        className="w-4 h-4 accent-red-500"
-                      />
-                      <span className="text-xs font-medium text-red-300">Esta falla NO generó incidente/accidente (confirmar)</span>
-                    </label>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Sección 3: Datos técnicos ── */}
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--color-texto-tenue)' }}>Datos Técnicos <span className="normal-case font-normal">(opcionales)</span></h3>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--color-texto-secundario)' }}>Horómetro (h)</label>
-                      <input
-                        type="number" min="0" step="0.1" placeholder="Ej. 1250.5"
-                        value={formMant.horasEquipoAlMomento}
-                        onChange={e => setFormMant({ ...formMant, horasEquipoAlMomento: e.target.value })}
-                        className="w-full px-4 py-3 rounded-lg border bg-transparent outline-none focus:ring-2 focus:ring-blue-500/50"
-                        style={{ borderColor: 'var(--color-borde)' }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--color-texto-secundario)' }}>Costo (S/)</label>
-                      <input
-                        type="number" min="0" step="0.01" placeholder="0.00"
-                        value={formMant.costoSoles}
-                        onChange={e => setFormMant({ ...formMant, costoSoles: e.target.value })}
-                        className="w-full px-4 py-3 rounded-lg border bg-transparent outline-none focus:ring-2 focus:ring-blue-500/50"
-                        style={{ borderColor: 'var(--color-borde)' }}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--color-texto-secundario)' }}>Próximo Mantenimiento</label>
-                    <input
-                      type="date"
-                      value={formMant.proximoMantenimiento}
-                      onChange={e => setFormMant({ ...formMant, proximoMantenimiento: e.target.value })}
-                      className="w-full px-4 py-3 rounded-lg border bg-transparent outline-none focus:ring-2 focus:ring-blue-500/50"
-                      style={{ borderColor: 'var(--color-borde)' }}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--color-texto-secundario)' }}>Repuestos y Disposición Final <span className="font-normal text-xs" style={{ color: 'var(--color-texto-tenue)' }}>ISO 14001</span></label>
-                    <input
-                      type="text"
-                      placeholder="Ej: Filtro aceite — desechado en punto autorizado RRSS..."
-                      value={formMant.repuestosUsados}
-                      onChange={e => setFormMant({ ...formMant, repuestosUsados: e.target.value })}
-                      className="w-full px-4 py-3 rounded-lg border bg-transparent outline-none focus:ring-2 focus:ring-blue-500/50"
-                      style={{ borderColor: 'var(--color-borde)' }}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--color-texto-secundario)' }}>URL Orden de Trabajo / Certificado <span className="font-normal text-xs text-yellow-400">recomendado</span></label>
-                    <input
-                      type="url"
-                      placeholder="https://drive.google.com/..."
-                      value={formMant.certificadoUrl}
-                      onChange={e => setFormMant({ ...formMant, certificadoUrl: e.target.value })}
-                      className="w-full px-4 py-3 rounded-lg border bg-transparent outline-none focus:ring-2 focus:ring-blue-500/50"
-                      style={{ borderColor: 'var(--color-borde)' }}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--color-texto-secundario)' }}>Observaciones</label>
-                    <textarea
-                      rows={2}
-                      placeholder="Anomalías, condiciones especiales, recomendaciones..."
-                      value={formMant.observaciones}
-                      onChange={e => setFormMant({ ...formMant, observaciones: e.target.value })}
-                      className="w-full px-4 py-3 rounded-lg border bg-transparent outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
-                      style={{ borderColor: 'var(--color-borde)' }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* ── Sección 4: Seguridad HSE ── */}
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--color-texto-tenue)' }}>Declaraciones de Seguridad</h3>
-                <div className="space-y-3">
-                  {equipo.requiereLoto && (
-                    <>                    
-                      {!lotoActivo && (
-                        <div className="flex items-start gap-3 px-4 py-3 rounded-lg border border-yellow-500/40" style={{ background: 'rgba(234,179,8,0.08)' }}>
-                          <AlertTriangle className="w-5 h-5 text-yellow-400 shrink-0 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-bold text-yellow-400">Alerta LOTO — sin bloqueo activo</p>
-                            <p className="text-xs mt-0.5" style={{ color: 'var(--color-texto-tenue)' }}>Confirme abajo que el LOTO fue aplicado antes de continuar.</p>
-                          </div>
-                        </div>
-                      )}
-                      <label className="flex items-start gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          required
-                          checked={formMant.lotoVerificado}
-                          onChange={e => setFormMant({ ...formMant, lotoVerificado: e.target.checked })}
-                          className="w-5 h-5 mt-0.5 accent-yellow-400 shrink-0"
-                        />
-                        <span className="text-sm">
-                          <span className="font-bold text-yellow-400">⚡ LOTO Verificado *</span>
-                          <span className="block text-xs mt-0.5" style={{ color: 'var(--color-texto-tenue)' }}>Confirmo que el Bloqueo y Etiquetado fue aplicado antes de la intervención.</span>
-                        </span>
-                      </label>
-                    </>
-                  )}
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formMant.equipoFueraServicio}
-                      onChange={e => setFormMant({ ...formMant, equipoFueraServicio: e.target.checked })}
-                      className="w-5 h-5 mt-0.5 accent-red-500 shrink-0"
-                    />
-                    <span className="text-sm">
-                      <span className="font-bold" style={{ color: formMant.equipoFueraServicio ? 'var(--color-peligro-500)' : 'var(--color-texto-principal)' }}>
-                        {formMant.equipoFueraServicio ? '⛔ Equipo queda FUERA DE SERVICIO' : 'Equipo queda fuera de servicio tras esta intervención'}
-                      </span>
-                      <span className="block text-xs mt-0.5" style={{ color: 'var(--color-texto-tenue)' }}>El estado cambiará automáticamente a "En Mantenimiento".</span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Error */}
-              {errorMant && (
-                <div className="p-3 rounded-lg text-sm font-medium" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: 'var(--color-peligro-500)' }}>{errorMant}</div>
-              )}
-            </form>
-
-            {/* Footer */}
-            <div className="px-6 py-4 border-t flex gap-3 shrink-0" style={{ borderColor: 'var(--color-borde)' }}>
-              <button
-                type="button"
-                onClick={() => { setModalMant(false); setErrorMant(''); }}
-                disabled={guardandoMant}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium text-sm border transition-colors hover:bg-white/5 disabled:opacity-50"
-                style={{ borderColor: 'var(--color-borde)', color: 'var(--color-texto-principal)' }}
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                form="form-registrar-mant"
-                disabled={guardandoMant}
-                onClick={registrarMantenimiento}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-sm text-white transition-all disabled:opacity-50 active:scale-[0.98] shadow-lg"
-                style={{ background: 'linear-gradient(135deg, var(--color-primary-500), var(--color-primary-700))' }}
-              >
-                {guardandoMant
-                  ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Guardando...</>
-                  : <><Check className="w-4 h-4" />Registrar Mantenimiento</>
-                }
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
 
       {/* ══ NFC MODAL ════════════════════════════════════════════════════════ */}
       {modalNfc && (

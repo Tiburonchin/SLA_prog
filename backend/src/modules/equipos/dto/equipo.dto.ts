@@ -44,6 +44,11 @@ export class CrearEquipoDto {
 
   // EPP por máquina (JSONB)
   @IsOptional() eppObligatorio?: any;
+
+  // Responsable HSE y datos técnicos legales (DS 005-2012-TR Art. 26 / DS 042-F)
+  @IsOptional() @IsString() coordinadorResponsable?: string;
+  @IsOptional() @IsString() telefonoEmergenciaCoordinador?: string;
+  @IsOptional() @IsString() capacidadNominalPresion?: string;
 }
 
 export class ActualizarEquipoDto {
@@ -74,6 +79,11 @@ export class ActualizarEquipoDto {
 
   // EPP por máquina (JSONB)
   @IsOptional() eppObligatorio?: any;
+
+  // Responsable HSE y datos técnicos legales (DS 005-2012-TR Art. 26 / DS 042-F)
+  @IsOptional() @IsString() coordinadorResponsable?: string;
+  @IsOptional() @IsString() telefonoEmergenciaCoordinador?: string;
+  @IsOptional() @IsString() capacidadNominalPresion?: string;
 }
 
 // ===== CALIBRACIÓN =====
@@ -95,4 +105,6 @@ export class CrearCalibracionDto {
   @IsOptional() @IsString() entidadCertificadora?: string;
   @IsOptional() @IsString() numeroCertificado?: string;
   @IsOptional() @IsEnum(EstadoCalibracion) estadoResultado?: EstadoCalibracion;
+  // NTP-ISO/IEC 17025: N° de acreditación del laboratorio ante INACAL (ej: "LE-038")
+  @IsOptional() @IsString() numeroAcreditacionInacal?: string;
 }

@@ -1,5 +1,5 @@
-import { Controller, Get, Param, Res, UseGuards, HttpException, HttpStatus } from '@nestjs/common';
-import { Response } from 'express';
+import { Controller, Get, Param, Req, Res, UseGuards, HttpException, HttpStatus } from '@nestjs/common';
+import { Request, Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard, Roles } from '../auth/roles.guard';
 import { ReportesService } from './reportes.service';
@@ -48,6 +48,37 @@ export class ReportesController {
     } catch (error) {
       console.error('Error generando acta en PDF:', error);
       throw new HttpException('Error al generar el acta PDF', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // Brecha 2: Dossier técnico legal con sello JWT de integridad
+  @Get('equipos/:id/dossier')
+  @Roles('COORDINADOR', 'JEFATURA', 'SUPERVISOR')
+  async descargarDossierEquipo(
+    @Param('id') equipoId: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    try {
+      const usuario = (req as any).user;
+      const ipCliente = (req.headers['x-forwarded-for'] as string) ?? req.socket?.remoteAddress ?? 'unknown';
+
+      const buffer = await this.pdfService.generarDossierEquipo(
+        equipoId,
+        { id: usuario.id, nombre: usuario.nombreCompleto ?? usuario.email },
+        ipCliente,
+      );
+
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename=dossier_equipo_${equipoId}.pdf`,
+        'Content-Length': buffer.length,
+      });
+
+      res.end(buffer);
+    } catch (error) {
+      console.error('Error generando dossier técnico:', error);
+      throw new HttpException('Error al generar el dossier técnico PDF', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 }

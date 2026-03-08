@@ -64,8 +64,9 @@ Documentos dedicados a módulos individuales, incluyendo edge cases, contratos d
 
 | Archivo                         | Ubicación       | Función Principal                                                                                                         |
 | :------------------------------ | :-------------- | :------------------------------------------------------------------------------------------------------------------------ |
-| **`Modulos_Trabajadores.md`**   | `/docs/modulos` | Documentación técnica del módulo Expediente 360° Trabajadores. Edge cases, errores HTTP, borrado lógico y null-safe.     |
-| **`Modulos_Sucursales.md`**     | `/docs/modulos` | Documentación técnica de Sedes. Sprint 3.1: 35 campos, JSONB, enums, Cron, y edge cases de riesgo.                       |
+| **`Modulos_Trabajadores.md`**              | `/docs/modulos` | Documentación técnica del módulo Expediente 360° Trabajadores. Edge cases, errores HTTP, borrado lógico y null-safe.     |
+| **`Modulos_Sucursales.md`**                | `/docs/modulos` | Documentación técnica de Sedes. Sprint 3.1: 35 campos, JSONB, enums, Cron, y edge cases de riesgo.                       |
+| **`Modulos_Equipos_Mantenimiento.md`** ⭐  | `/docs/modulos` | Documentación técnica del módulo Equipos & Mantenimiento. Contratos de API completos, reglas HSE (LOTO, INACAL, ISO 14001), máquina de estados del equipo, MTBF y brechas conocidas. _(v1 — 2026-03-07)_ |
 
 ---
 

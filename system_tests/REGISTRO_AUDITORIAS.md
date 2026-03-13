@@ -33,6 +33,7 @@ system_tests/
 | 002 | 2026-03-04 | 05:00      | 30    | 27  | 3   | 90.0% | `reports/2026-03-04/reporte_05-00.json` | Ejecución autónoma validando auto-ordenamiento de carpetas por fecha.                                                                                                                       |
 | 003 | 2026-03-04 | 15:17      | —     | —   | —   | —     | Auditoría manual de código              | **Parches aplicados:** 4 `onDelete` en `schema.prisma` (Restrict). FUN-01c resuelto: `page`/`limit` agregados a `FiltrarAmonestacionesDto`. RBAC verificado en 10 controllers: sin brechas. |
 | 004 | 2026-03-06 | 18:51      | —     | —   | —   | —     | Parches de Seguridad (IDOR y RBAC)      | **Parches:** Eliminado GET /estadisticas sin uso en trabajadores. Validaciones de jurisdicción anti-IDOR implementadas para Supervisores en TrabajadoresModule (403 Forbidden).             |
+| 005 | 2026-03-07 | 01:30      | —     | —   | —   | —     | UI Check y HSE Audit                    | **HSE & UI:** Resolución de 14 issues críticos y medios UI/UX (Thumb zones en formularios, Responsive charts, Contrastes PWA y SafeArea móvil). Backend estable al 93% en DAST.             |
 
 ---
 

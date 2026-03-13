@@ -450,3 +450,91 @@ El fondo efectivo calculado es ≈ `#1d1c22` (casi igual al fondo base). Ratio `
 ---
 
 _Auditoría generada por análisis estático de código. Prioridad de corrección: todos los ítems 🔴 antes del próximo sprint de campo._
+
+---
+
+# Sprint Estabilización — Fase 3.1 — Sucursales & Dashboard (2026-03-06)
+
+**Objetivo del sprint:** Estabilizar el backend luego de la expansión masiva del modelo `Sucursal` (35 campos nuevos, JSONB, enums Prisma), crear los módulos `Dashboard` e `Incidentes` y verificar la integridad del frontend de trabajadores y sucursales.
+
+**Resultado: ✅ CERO errores de compilación TypeScript al cierre del sprint (`npx tsc --noEmit` → exit 0).**
+
+---
+
+## Bugs de TypeScript / Backend Corregidos
+
+### BUG-TS-01 — Prisma Client desactualizado (enums no exportados)
+
+| Campo        | Detalle |
+| :----------- | :------ |
+| **Severidad** | 🔴 Bloqueante (compilación) |
+| **Archivo**   | `backend/src/modules/sucursales/dto/sucursal.dto.ts` |
+| **Síntoma**   | `Module '"@prisma/client"' has no exported member 'TipoInstalacion'` (y otros 4 enums) |
+| **Causa Raíz** | El cliente Prisma no fue regenerado tras la expansión masiva del `schema.prisma`. Los tipos compilados en `node_modules/.prisma/client` correspondían a la versión anterior del modelo. |
+| **Solución**   | Ejecutar `npx prisma generate` en `/backend` para regenerar los tipos. Patrón de importación correcto: `import { TipoInstalacion, NivelRiesgo, CategoriaIncendio, ResultadoInspeccionSUNAFIL } from '@prisma/client';` |
+| **Lección**    | SIEMPRE correr `npx prisma generate` antes de `tsc` o `nest build` cuando se modifica `schema.prisma`. |
+
+---
+
+### BUG-TS-02 — Incompatibilidad de tipos en campos JSONB (TypeScript strict mode)
+
+| Campo        | Detalle |
+| :----------- | :------ |
+| **Severidad** | 🔴 Bloqueante (compilación) |
+| **Archivo**   | `backend/src/modules/sucursales/sucursales.service.ts` |
+| **Síntoma**   | `Type 'BrigadaEmergenciaDto[]' is not assignable to type 'NullableJsonNullValueInput | InputJsonValue'` |
+| **Causa Raíz** | Prisma modela los campos `Json` con su propio tipo opaco `InputJsonValue`. TypeScript rechaza la asignación directa de un array tipado a este tipo bajo modo estricto. |
+| **Solución**   | Patrón de cast seguro: destructurar los campos JSONB del DTO y aplicar `as unknown as Prisma.InputJsonValue` únicamente a ellos, extendiendo el resto normalmente: |
+
+```typescript
+// sucursales.service.ts — Patrón JSONB
+const { brigadasEmergencia, peligrosIdentificados, ...rest } = dto;
+await this.prisma.sucursal.create({
+  data: {
+    ...rest,
+    ...(brigadasEmergencia !== undefined && {
+      brigadasEmergencia: brigadasEmergencia as unknown as Prisma.InputJsonValue,
+    }),
+    ...(peligrosIdentificados !== undefined && {
+      peligrosIdentificados: peligrosIdentificados as unknown as Prisma.InputJsonValue,
+    }),
+  },
+});
+```
+
+| **Lección** | No usar `as any`. El doble cast `as unknown as TargetType` es el patrón idiomático de TypeScript para este escenario y preserva la confianza del compilador. |
+| :---------- | :--- |
+
+---
+
+## Nota de Diseño de BD — KPI Global de Equipos en Dashboard
+
+| Campo        | Detalle |
+| :----------- | :------ |
+| **ID**        | DESIGN-NOTE-01 |
+| **Módulo**    | `DashboardModule` — `GET /api/dashboard/riesgos-activos` |
+| **Observación** | El KPI `equiposConCalibracionVencida` siempre retorna alcance **global** (no filtrable por `sucursalId`). |
+| **Causa**     | El modelo `Equipo` en `schema.prisma` no posee una FK `sucursalId`. La relación Equipo → Sucursal no fue modelada en la fase de diseño de BD. |
+| **Impacto**   | Ninguno en producción actual. El coordinador que consulte `?sucursalId=xxx` recibirá los KPIs de trabajadores e inspecciones filtrados por sede, pero el contador de equipos será siempre el total de la empresa. |
+| **Documentación en response** | El campo se incluye en el JSON de respuesta con `"alcance": "global"` para que el frontend muestre el tooltip informativo correspondiente. |
+| **Resolución futura** | Agregar `sucursalId Int?` en el modelo `Equipo` y una migración, si el negocio requiere trazabilidad de equipos por sede. |
+
+---
+
+## Auditoría Null-Safety — Frontend (Lectura Estática)
+
+**Archivos auditados:** `PaginaDetalleSucursal.tsx` (733 líneas), `PaginaSucursales.tsx` (776 líneas), `PaginaDetalleTrabajador.tsx` (901 líneas), `PaginaTrabajadores.tsx` (547 líneas), `trabajadores.service.ts` (257 líneas).
+
+**Resultado: ✅ Todas las páginas auditadas son null-safe al 100%.** No se encontraron errores de renderizado potenciales.
+
+| ID     | Severidad | Archivo | Hallazgo | Estado |
+| :----- | :-------- | :------ | :------- | :----- |
+| NS-01  | ✅ OK | `PaginaDetalleSucursal.tsx` | Todos los campos opcionales usan optional chaining (`?.`). Arrays JSONB verificados con `brigadas?.length` antes de renderizar `GridBrigadas`. | Seguro |
+| NS-02  | ✅ OK | `PaginaSucursales.tsx` | `BadgeRiesgo` recibe `nivelRiesgo \| null` y muestra badge neutro cuando el valor es nulo. `AlertaDC` maneja `fecha = null` con un guión `—`. | Seguro |
+| NS-03  | ✅ OK | `PaginaDetalleTrabajador.tsx` | Skeleton loaders activos durante fetch. Todos los campos del trabajador desestructurados con fallback `?? ''` o `?? 0`. | Seguro |
+| NS-04  | ✅ OK | `PaginaTrabajadores.tsx` | Tabla paginada con skeleton loaders. `_count?.trabajadores ?? 0` consistente. | Seguro |
+| NS-05  | ℹ️ Info | `trabajadores.service.ts` | `sucursalesService.actualizar` acepta `Partial<CrearSucursalData>` con solo 4 campos base. Los 35 nuevos campos de `Sucursal` no están expuestos en el Drawer de edición rápida. **No es un bug** — el Drawer de edición actualmente solo muestra nombre/dirección/latitud/longitud (scope intencional). Para exponer los campos completos se debe crear un formulario dedicado en `PaginaDetalleSucursal.tsx`. | Backlog |
+
+---
+
+_Sprint cerrado por: @HSE-auditor-ux + @HSE-backend. Fecha: 2026-03-06._

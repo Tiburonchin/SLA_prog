@@ -40,6 +40,8 @@ enum TipoExamenMedico {
 enum EstadoEquipo {
   OPERATIVO
   EN_MANTENIMIENTO
+  BLOQUEADO_CERTIFICADO // Bloqueado automáticamente por CRON — certificación vencida
+  BLOQUEADO_INSPECCION // Bloqueado automáticamente por falla crítica en checklist pre-uso
   BAJA_TECNICA
 }
 
@@ -87,6 +89,54 @@ enum ResultadoInspeccionSUNAFIL {
   SANCIONADO // Multa / medida cautelar impuesta
 }
 
+/// Clasificación de maquinaria para trazabilidad legal (DS 024-2016-EM / ISO 45001)
+enum TipoEquipo {
+  MAQUINARIA_PESADA // Grúas, excavadoras, montacargas, palas mecánicas
+  HERRAMIENTA_PODER // Esmeriles, taladros, sierras circulares, rotomartillos
+  EQUIPO_MEDICION // Manómetros, termómetros, baumanómetros (requieren calibración INACAL)
+  VEHICULO // Camionetas, cisternas, volquetes, ambulancias
+  EQUIPO_PRESION // Compresoras, autoclaves, calderas (requieren ASME)
+  HERRAMIENTA_MENOR // Herramientas manuales bajo clasificación de riesgo
+}
+
+/// Estado de autorización de un operador para usar un equipo específico
+enum EstadoAutorizacion {
+  PENDIENTE // Sin revisión formal aún
+  AUTORIZADO // Capacitación y EMO verificados — acceso habilitado
+  SUSPENDIDO // EMO vencido o capacitación caducada — acceso revocado temporalmente
+  REVOCADO // Baja definitiva de la autorización
+}
+
+/// Tipo de intervención técnica sobre el equipo
+enum TipoMantenimiento {
+  PREVENTIVO // Programado por calendario u horas operadas
+  CORRECTIVO // En respuesta a una falla detectada
+  PREDICTIVO // Basado en análisis de condición (vibraciones, temperatura)
+  OVERHAUL // Reparación general mayor
+}
+
+/// Resultado de calibración según INACAL / NTP-ISO/IEC 17025
+enum EstadoCalibracion {
+  CONFORME // Dentro de especificaciones — aprobado
+  NO_CONFORME // Fuera de especificaciones — requiere ajuste o baja inmediata
+  CONDICIONADO // Apto con restricciones operativas documentadas
+}
+
+/// Clasificación de la inspección para trazabilidad legal diferenciada
+enum TipoInspeccion {
+  GENERAL // Inspección de área, ambiente o SST general
+  PRE_USO // Verificación obligatoria pre-turno de un equipo (DS 024-2016-EM Art. 238)
+  PERIODICA // Inspección programada mensual / trimestral del equipo
+  POST_INCIDENTE // Obligatoria tras cualquier evento o accidente con el equipo
+}
+
+/// Estado de ejecución de un procedimiento LOTO (Bloqueo y Etiquetado — OSHA 1910.147)
+enum EstadoLoto {
+  BLOQUEADO // Energías aisladas — equipo bajo intervención segura
+  DESBLOQUEADO // Energías restauradas — equipo devuelto al servicio
+  INCIDENCIA // Se reportó un problema durante el procedimiento de bloqueo
+}
+
 // ===== USUARIOS DEL SISTEMA =====
 
 model Usuario {
@@ -102,9 +152,11 @@ model Usuario {
   deletedAt      DateTime? // null = activo | fecha = eliminado lógicamente
 
   // Relaciones
-  supervisor     Supervisor?
-  registrosAudit RegistroAuditoria[]
-  notificaciones Notificacion[]
+  supervisor        Supervisor?
+  registrosAudit    RegistroAuditoria[]
+  notificaciones    Notificacion[]
+  documentosSubidos DocumentoEquipo[]   @relation("DocumentosSubidos")
+  dossierExports    DossierExportLog[]  @relation("DossierExports")
 
   @@index([activo])
   @@index([deletedAt])
@@ -187,6 +239,7 @@ model Sucursal {
   supervisores   SupervisorSucursal[]
   inspecciones   Inspeccion[]
   amonestaciones Amonestacion[]
+  equipos        Equipo[] // FASE 3 — Equipos físicamente ubicados en esta sucursal
 
   // Índices B-tree para alertas diarias y dashboards legales
   @@index([activa])
@@ -253,7 +306,7 @@ model Trabajador {
   deletedAt     DateTime?
 
   // Relaciones
-  sucursal        Sucursal               @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  sucursal        Sucursal?              @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
   entregasEpp     EntregaEpp[]
   capacitaciones  Capacitacion[]
   amonestaciones  Amonestacion[]
@@ -261,6 +314,9 @@ model Trabajador {
   inspecciones    InspeccionTrabajador[]
   // FASE 2 — Historial médico normalizado (uno-a-muchos)
   examenesMedicos ExamenMedico[]
+  // FASE 3 — Autorizaciones para operar equipos específicos
+  autorizaciones  AutorizacionOperador[]
+  ejecucionesLoto EjecucionLoto[]
 
   // FASE 2 — Índices para búsqueda rápida en escáner QR de emergencias
   @@index([sucursalId])
@@ -314,11 +370,61 @@ model Equipo {
   // FASE 1 — Soft-Delete: el equipo dado de baja mantiene historial de calibraciones
   deletedAt     DateTime?
 
+  // ─── SINERGIA — Ubicación física (OBLIGATORIO) ────────────────────────────
+  sucursalId      String? // FK Sucursal — MIGRACIÓN FASE 1: nullable. Poblar y luego forzar NOT NULL.
+  ubicacionFisica String? // Ej: "Almacén Zona Norte - Rack 3 / Piso 2"
+
+  // ─── CICLO DE VIDA (DS 024-2016-EM / ISO 45001) ───────────────────────────
+  tipoEquipo               TipoEquipo @default(HERRAMIENTA_MENOR) // Clasificación legal — revisar por equipo
+  fechaFabricacion         DateTime? // Para calcular vida útil real vs. declarada
+  fechaAdquisicion         DateTime? // Fecha de alta formal en la empresa
+  vidaUtilMeses            Int? // Límite operacional declarado por fabricante
+  proximoMantenimiento     DateTime? // Fecha programada del siguiente mantenimiento
+  horasOperadasActuales    Float? // Contador de horas (para mantenimiento por horas)
+  horasLimiteMantenimiento Float? // Umbral que dispara alerta preventiva
+
+  // ─── PROTOCOLO LOTO (OSHA 1910.147 / Reglamento Seg. Industrial Perú) ────
+  requiereLoto       Boolean  @default(false) // Maquinaria con energía peligrosa
+  puntosBloqueo      String? // "3 disyuntores panel A, 1 válvula hidráulica 150 bar"
+  energiasPeligrosas String[] // ["ELECTRICA_480V", "HIDRAULICA_150BAR", "NEUMATICA"]
+
+  // ─── EPP OBLIGATORIO POR MÁQUINA (JSONB) ─────────────────────────────────
+  // Estructura: [{"tipo":"CASCO","especificacion":"Clase E","obligatorio":true}, ...]
+  eppObligatorio Json? // Lista de EPP requeridos para operar este equipo específico
+
+  // ─── RESPONSABLE HSE Y DATOS TÉCNICOS LEGALES (Auditoría HSE - Marzo 2026) ──
+  // DS 005-2012-TR Art. 26 lit. f): identificar al responsable de seguridad
+  coordinadorResponsable        String? // Nombre del coordinador HSE asignado a este equipo
+  telefonoEmergenciaCoordinador String? // Teléfono de emergencia del coordinador HSE
+  // DS 042-F / ASME VIII: capacidad nominal o presión máxima de trabajo declarada
+  capacidadNominalPresion       String? // Ej: "150 BAR", "5 Ton", "1200 RPM"
+
+  // ─── BLOQUEO AUTOMÁTICO DEL SISTEMA (CRON / Regla de negocio) ────────────
+  esBloqueoAutomatico Boolean   @default(false) // true = estado cambiado por CRON o regla automática
+  motivoBloqueoAuto   String? // Ej: "Certificación INACAL vencida el 2026-03-01"
+  fechaBloqueoAuto    DateTime? // Timestamp del bloqueo automático
+
+  // ─── VÍNCULO CON MATRIZ IPC (Pestaña 1 — Matriz de Riesgos) ─────────────
+  matrizIpcId String? // FK a MatrizIpc — muestra la matriz de riesgos del equipo
+
   // Relaciones
-  calibraciones Calibracion[]
+  sucursal        Sucursal?              @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  matrizIpc       MatrizIpc?             @relation(fields: [matrizIpcId], references: [id], onDelete: SetNull)
+  calibraciones   Calibracion[]
+  mantenimientos  Mantenimiento[]
+  autorizaciones  AutorizacionOperador[]
+  ejecucionesLoto EjecucionLoto[]
+  inspecciones    Inspeccion[]
+  dossierLogs     DossierExportLog[]
+  documentos      DocumentoEquipo[]
 
   @@index([estado])
+  @@index([sucursalId]) // Filtrar equipos por sede
+  @@index([tipoEquipo]) // Clasificar para auditorías
   @@index([deletedAt])
+  @@index([proximoMantenimiento]) // Alertas de mantenimiento próximo
+  @@index([estado, esBloqueoAutomatico]) // Dashboard de bloqueados automáticos
+  @@index([matrizIpcId])
   @@map("equipos")
 }
 
@@ -327,13 +433,25 @@ model Calibracion {
   equipoId           String
   fechaCalibracion   DateTime
   proximaCalibracion DateTime
-  certificadoUrl     String? // Ruta al certificado
+  certificadoUrl     String? // Ruta al certificado digital (INACAL)
   observaciones      String?
   creadoEn           DateTime @default(now())
+
+  // ─── CAMPOS INACAL / NTP-ISO/IEC 17025 (requeridos para validez legal) ────
+  // MIGRACIÓN FASE 1: nullable para registros históricos. Nuevas calibraciones deben incluirlo.
+  entidadCertificadora     String? // "INACAL", "SGS", "Bureau Veritas" — requerido en nuevas altas
+  numeroCertificado        String? // N° de serie del certificado (trazabilidad INACAL)
+  estadoResultado          EstadoCalibracion @default(CONFORME) // ¿El equipo pasó la calibración?
+  // NTP-ISO/IEC 17025: N° de acreditación del laboratorio calibrador ante INACAL
+  // Sin este campo, el certificado carece de trazabilidad legal ante SUNAFIL/Metrología.
+  numeroAcreditacionInacal String? // Ej: "LE-038", "LC-047" — emitido por INACAL
 
   // Relaciones
   equipo Equipo @relation(fields: [equipoId], references: [id], onDelete: Restrict) // SEC: Historial de calibraciones es inmutable
 
+  @@index([equipoId])
+  @@index([proximaCalibracion]) // Alertas de vencimiento
+  @@index([estadoResultado]) // Filtrar equipos con calibración no conforme
   @@map("calibraciones")
 }
 
@@ -350,6 +468,9 @@ model MatrizIpc {
   activo                   Boolean  @default(true)
   creadoEn                 DateTime @default(now())
   actualizadoEn            DateTime @updatedAt
+
+  // Relaciones
+  equipos Equipo[] // Equipos vinculados a esta matriz de riesgos (Pestaña 1)
 
   @@unique([cargo, ubicacion])
   @@index([cargo]) // Búsqueda por puesto de trabajo
@@ -435,6 +556,11 @@ model Inspeccion {
   tipoTrabajo  String // Ej: "Trabajo en Altura", "Excavación"
   estado       EstadoInspeccion @default(EN_PROGRESO)
 
+  // ─── SINERGIA CON EQUIPOS (FASE 3) ───────────────────────────────────────
+  // Opcional: una inspección puede ser GENERAL (sin equipo) o PRE_USO/PERIODICA (con equipo)
+  equipoId       String? // FK opcional — vincula la inspección a un equipo específico
+  tipoInspeccion TipoInspeccion @default(GENERAL)
+
   // Checklist dinámico generado desde la Matriz IPC
   checklist     Json // JSONB: items del checklist con sus estados
   observaciones String?
@@ -455,10 +581,13 @@ model Inspeccion {
   // Relaciones
   supervisor   Supervisor             @relation(fields: [supervisorId], references: [id], onDelete: Restrict)
   sucursal     Sucursal               @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  equipo       Equipo?                @relation(fields: [equipoId], references: [id], onDelete: SetNull)
   fotos        FotoInspeccion[]
   trabajadores InspeccionTrabajador[]
 
   @@index([estado])
+  @@index([tipoInspeccion]) // Filtrar por PRE_USO, PERIODICA, POST_INCIDENTE
+  @@index([equipoId]) // Historial de inspecciones por equipo
   @@index([deletedAt])
   @@map("inspecciones")
 }
@@ -548,13 +677,115 @@ model Incidente {
   deletedAt      DateTime?
 
   // Relaciones
-  trabajador   Trabajador    @relation(fields: [trabajadorId], references: [id], onDelete: Restrict)
-  amonestacion Amonestacion? @relation(fields: [amonestacionId], references: [id], onDelete: SetNull)
+  trabajador     Trabajador      @relation(fields: [trabajadorId], references: [id], onDelete: Restrict)
+  amonestacion   Amonestacion?   @relation(fields: [amonestacionId], references: [id], onDelete: SetNull)
+  mantenimientos Mantenimiento[] // Relación inversa: mantenimientos que derivaron de este incidente
 
   @@index([trabajadorId])
   @@index([fechaEvento])
   @@index([deletedAt])
   @@map("incidentes")
+}
+
+// ===== MÓDULO 4b: GESTIÓN DE EQUIPOS — MODELOS NUEVOS =====
+
+/// Tabla intermedia que autoriza a un Trabajador a operar un Equipo específico.
+/// Regla de negocio: sin AUTORIZADO activo, el backend bloquea el registro de Pre-Uso.
+model AutorizacionOperador {
+  id                     String             @id @default(uuid())
+  trabajadorId           String
+  equipoId               String
+  // Habilitadores que el Coordinador debe verificar antes de autorizar
+  capacitacionRequerida  String // Ej: "Operación Montacargas OSHA 1910.178"
+  capacitacionVerificada Boolean            @default(false)
+  emoVigenteVerificado   Boolean            @default(false)
+  eppVerificado          Boolean            @default(false)
+  // Estado y vigencia de la autorización
+  estado                 EstadoAutorizacion @default(PENDIENTE)
+  fechaVencimiento       DateTime? // La autorización también caduca
+  autorizadoPorId        String? // userId del Coordinador que aprueba
+  observaciones          String?
+  creadoEn               DateTime           @default(now())
+  actualizadoEn          DateTime           @updatedAt
+
+  trabajador Trabajador @relation(fields: [trabajadorId], references: [id], onDelete: Restrict)
+  equipo     Equipo     @relation(fields: [equipoId], references: [id], onDelete: Restrict)
+
+  // Un trabajador tiene una sola autorización activa por equipo
+  @@unique([trabajadorId, equipoId])
+  @@index([estado])
+  @@index([fechaVencimiento]) // Alertas de autorización próxima a vencer
+  @@map("autorizaciones_operador")
+}
+
+/// Registro de cada intervención técnica sobre un equipo.
+/// Diferente a Calibracion: la calibración es metrológica; el mantenimiento es mecánico.
+model Mantenimiento {
+  id                   String            @id @default(uuid())
+  equipoId             String
+  tipoMantenimiento    TipoMantenimiento
+  fechaMantenimiento   DateTime
+  proximoMantenimiento DateTime? // Actualiza también el campo en Equipo
+  tecnicoResponsable   String // Nombre del técnico o empresa ejecutora
+  proveedorServicio    String? // Empresa contratista (si aplica)
+  trabajoRealizado     String // Descripción técnica del trabajo ejecutado
+  repuestosUsados      String? // Trazabilidad de repuestos (para análisis de vida útil)
+  horasEquipoAlMomento Float? // Odómetro en horas al momento del servicio
+  costoSoles           Float? // Para análisis costo-beneficio y presupuesto
+  equipoFueraServicio  Boolean           @default(false) // ¿El equipo quedó fuera de servicio?
+  equipoQuedoOperativo Boolean           @default(true) // ¿El equipo quedó operativo tras la intervención?
+  certificadoUrl       String? // Orden de trabajo firmada / informe técnico — OBLIGATORIO en producción
+  observaciones        String?
+  creadoEn             DateTime          @default(now())
+
+  // ─── CAMPOS HSE LEGALES — FASE 4 ─────────────────────────────────────────
+  // OSHA 1910.147: Certificación de protocolo LOTO aplicado
+  aplicoLoto           Boolean @default(false)
+  // Ley 29783 Art. 82: Vinculación con reporte de incidente si la falla generó accidente
+  generoIncidente      Boolean @default(false)
+  incidenteId          String? // FK a Incidente — poblado si generoIncidente=true
+  // DS 024-2016-EM: Certificación técnica del interventor
+  certificacionTecnico String? // Ej: "NFPA 70E Arco Eléctrico", "ASME B31.3"
+  // ISO 14001:2015 Cláusula 8.1: Gestión de residuos peligrosos generados
+  disposicionResiduos  String? // Ej: "Aceites entregados a EPS-RS Mant. Industrial SAC"
+
+  // Relaciones
+  equipo    Equipo     @relation(fields: [equipoId], references: [id], onDelete: Restrict) // Historial inmutable
+  incidente Incidente? @relation(fields: [incidenteId], references: [id], onDelete: SetNull)
+
+  @@index([equipoId])
+  @@index([tipoMantenimiento])
+  @@index([fechaMantenimiento])
+  @@index([generoIncidente]) // Dashboard: mantenimientos con incidentes asociados
+  @@index([aplicoLoto]) // Auditoría de cumplimiento LOTO
+  @@map("mantenimientos")
+}
+
+/// Registro de ejecución de procedimiento LOTO (Lockout/Tagout).
+/// Obligatorio antes de cualquier mantenimiento en equipos con energía peligrosa.
+/// Regla de negocio: si Equipo.requiereLoto=true, no se crea Mantenimiento sin LOTO activo.
+model EjecucionLoto {
+  id                String     @id @default(uuid())
+  equipoId          String
+  trabajadorId      String // Operario que instala el/los candado(s)
+  motivoBloqueo     String // "Mantenimiento preventivo", "Limpieza interna", etc.
+  autorizadoPorId   String? // userId del Supervisor que autoriza el bloqueo
+  fechaBloqueo      DateTime
+  fechaDesbloqueo   DateTime? // Null = candado activo actualmente
+  // Checklist de verificación de energía cero (JSONB)
+  // [{"paso":"Abrir disyuntor A-3","verificado":true}, {"paso":"Purgar presión hidráulica","verificado":true}]
+  listaVerificacion Json
+  estadoEjecucion   EstadoLoto @default(BLOQUEADO)
+  observaciones     String?
+  creadoEn          DateTime   @default(now())
+  actualizadoEn     DateTime   @updatedAt
+
+  equipo     Equipo     @relation(fields: [equipoId], references: [id], onDelete: Restrict)
+  trabajador Trabajador @relation(fields: [trabajadorId], references: [id], onDelete: Restrict)
+
+  @@index([equipoId])
+  @@index([estadoEjecucion]) // Buscar rápidamente LOTO activos (BLOQUEADO)
+  @@map("ejecuciones_loto")
 }
 
 // ===== MÓDULO 5: AUDIT LOG Y NOTIFICACIONES =====
@@ -593,4 +824,67 @@ model Notificacion {
   destinatario Usuario @relation(fields: [destinatarioId], references: [id], onDelete: Cascade)
 
   @@map("notificaciones")
+}
+
+// ===== MÓDULO 4c: TRAZABILIDAD DE EXPORTACIONES Y DOCUMENTOS =====
+
+/// Tipos de documento técnico/legal vinculados a un equipo.
+enum TipoDocumentoEquipo {
+  MANUAL_FABRICANTE // Manual de operación oficial del fabricante
+  NORMA_APLICABLE // Norma ISO, ASME, OSHA referenciada
+  CERTIFICADO_FABRICACION // Certificado de fabricación y primera puesta en marcha
+  CERTIFICADO_PRUEBA_CARGA // Para equipos de izaje (grúas, eslingas) — ASME B30
+  FICHA_TECNICA // Especificaciones técnicas resumidas
+  PROCEDIMIENTO_LOTO // Procedimiento LOTO específico del equipo (OSHA 1910.147)
+  LISTA_REPUESTOS // Catálogo de repuestos del fabricante
+  OTRO
+}
+
+/// Repositorio de documentos técnico-legales vinculados a un equipo.
+/// Soporta la Pestaña 4 (Certificaciones y Manuales) del Expediente 360°.
+model DocumentoEquipo {
+  id               String              @id @default(uuid())
+  equipoId         String
+  nombre           String // Ej: "Manual de Operación v2.3"
+  tipo             TipoDocumentoEquipo
+  archivoUrl       String // URL a S3 / Azure Blob
+  version          String? // Ej: "Rev. 3"
+  emitidoPor       String? // Fabricante, INACAL, SUNAFIL, etc.
+  fechaEmision     DateTime?
+  fechaVencimiento DateTime? // Para certificados que caducan
+  observaciones    String?
+  activo           Boolean             @default(true)
+  creadoEn         DateTime            @default(now())
+  subidoPorId      String? // FK a Usuario — trazabilidad de quién subió
+
+  equipo    Equipo   @relation(fields: [equipoId], references: [id], onDelete: Restrict)
+  subidoPor Usuario? @relation("DocumentosSubidos", fields: [subidoPorId], references: [id], onDelete: SetNull)
+
+  @@index([equipoId])
+  @@index([tipo])
+  @@index([fechaVencimiento]) // Alertas de documentos por vencer
+  @@map("documentos_equipo")
+}
+
+/// Registro inmutable de cada generación de Dossier PDF por equipo.
+/// Trazabilidad legal: "¿Quién descargó el expediente y en qué estado estaba el equipo?"
+model DossierExportLog {
+  id                     String   @id @default(uuid())
+  equipoId               String
+  usuarioId              String
+  fechaExportacion       DateTime @default(now())
+  estadoEquipoAlExportar String // Snapshot del EstadoEquipo en ese instante
+  calibracionVigente     Boolean // Snapshot: ¿tenía calibración vigente?
+  fueNoConforme          Boolean  @default(false) // ¿Se generó con marca de agua roja?
+  jwtSnapshot            String? // HMAC-SHA256 del payload de integridad del dossier
+  ipCliente              String? // IP del cliente (trazabilidad adicional)
+  userAgent              String? // Dispositivo/browser del usuario
+
+  equipo  Equipo  @relation(fields: [equipoId], references: [id], onDelete: Restrict)
+  usuario Usuario @relation("DossierExports", fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@index([equipoId])
+  @@index([usuarioId])
+  @@index([fechaExportacion])
+  @@map("dossier_export_logs")
 }

@@ -10,13 +10,48 @@ import api from '../../services/api';
 import AlertaClimatica from '../../components/weather/AlertaClimatica';
 
 /* ─── Tipos del endpoint GET /dashboard/riesgos-activos ─── */
+
+/** Detalle de un equipo con calibración vencida */
+interface DetalleEquipo {
+  equipoId: string;
+  nombre: string;
+  marca: string;
+  numeroSerie: string;
+  estadoActual: string;
+  calibracionVencioEl: string;
+  diasVencido: number;
+}
+
+/** Detalle de un trabajador sin EMO vigente */
+interface DetalleTrabajadorEmo {
+  trabajadorId: string;
+  nombreCompleto: string;
+  cargo: string;
+  dni: string;
+  estadoEMO: string;
+  fechaVencimientoEMO: string | null;
+  sucursal: string;
+  diasRestantes: number | null;
+  motivo: 'SIN_REGISTRO_EMO' | 'ESTADO_NO_APTO' | 'PROXIMO_A_VENCER';
+}
+
+/** Detalle de una inspección abierta hoy */
+interface DetalleInspeccion {
+  inspeccionId: string;
+  tipoTrabajo: string | null;
+  ubicacion: string | null;
+  sucursal: string;
+  supervisor: string;
+  iniciadaHaceMinutos: number;
+}
+
 interface DashboardRiesgos {
   generadoEn: string;
   sucursalId: string;
   kpis: {
-    equiposConMantenimientoVencido: { total: number; alcance: string; detalle: any[] };
-    trabajadoresSinEmoVigente:       { total: number; alcance: string; detalle: any[] };
-    inspeccionesAbiertasHoy:         { total: number; alcance: string; nota: string; detalle: any[] };
+    equiposConMantenimientoVencido: { total: number; alcance: string; detalle: DetalleEquipo[] };
+    trabajadoresSinEmoVigente:       { total: number; alcance: string; detalle: DetalleTrabajadorEmo[] };
+    inspeccionesAbiertasHoy:         { total: number; alcance: string; nota: string; detalle: DetalleInspeccion[] };
   };
 }
 
@@ -90,26 +125,26 @@ function TarjetaRiesgo({ alerta, onClick }: { alerta: AlertaTurno; onClick?: () 
       onClick={onClick}
       className={`w-full text-left flex items-center gap-4 px-4 py-4 rounded-xl border transition-all active:scale-[0.98] hover:brightness-105 ${
         esRojo
-          ? 'bg-red-500/20 border-red-500/50 hover:bg-red-500/30'
-          : 'bg-amber-500/20 border-amber-500/50 hover:bg-amber-500/30'
+          ? 'bg-red-600/30 border-red-400 hover:bg-red-500/40 text-white'
+          : 'bg-amber-500 border-amber-600 hover:bg-amber-400 text-slate-900 shadow-md'
       }`}
       style={{ minHeight: '64px' }}
     >
       {/* Indicador lateral */}
-      <div className={`w-1 self-stretch rounded-full shrink-0 ${esRojo ? 'bg-red-500' : 'bg-amber-500'} ${esRojo ? 'animate-pulse' : ''}`} />
+      <div className={`w-1 self-stretch rounded-full shrink-0 ${esRojo ? 'bg-red-400' : 'bg-slate-900'} ${esRojo ? 'animate-pulse' : ''}`} />
 
       {/* Ícono */}
-      <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${esRojo ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/15 text-amber-400'}`}>
+      <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${esRojo ? 'bg-white/10 text-red-100' : 'bg-black/10 text-slate-900'}`}>
         {alerta.icono}
       </div>
 
       {/* Texto */}
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-semibold leading-snug ${esRojo ? 'text-red-100' : 'text-amber-100'}`}>
+        <p className={`text-sm font-semibold leading-snug ${esRojo ? 'text-white' : 'text-slate-900'}`}>
           {esRojo ? '🔴' : '🟡'} {alerta.mensaje}
         </p>
         {alerta.subtexto && (
-          <p className="text-xs mt-0.5 opacity-90" style={{ color: 'var(--color-texto-secundario)' }}>
+          <p className={`text-xs mt-0.5 opacity-90 ${esRojo ? 'text-red-200' : 'text-amber-900'}`}>
             {alerta.subtexto}
           </p>
         )}
@@ -204,7 +239,7 @@ export default function PaginaDashboard() {
         </div>
         <button
           onClick={() => { cargarRiesgos(); cargarActividad(); }}
-          className="p-2.5 rounded-xl border transition-colors hover:bg-white/5 shrink-0 flex items-center justify-center min-w-[44px] min-h-[44px]"
+          className="p-2.5 rounded-xl border transition-colors hover:bg-white/5 shrink-0 flex items-center justify-center min-w-[48px] min-h-[48px]"
           style={{ borderColor: 'var(--color-borde)', color: 'var(--color-texto-secundario)' }}
           title="Refrescar"
         >
@@ -213,7 +248,9 @@ export default function PaginaDashboard() {
       </div>
 
       {/* ── ALERTA CLIMÁTICA ── */}
-      <AlertaClimatica />
+      {usuario?.rol !== 'USUARIO_BASE' && (
+        <AlertaClimatica />
+      )}
 
       {/* ══════════════════════════════════════════════════════
           TABLERO DE TAREAS DE TURNO
@@ -246,7 +283,7 @@ export default function PaginaDashboard() {
             <p className="text-xs mt-1 opacity-30">Estará disponible cuando el backend esté desplegado</p>
             <button
               onClick={cargarRiesgos}
-              className="mt-4 px-4 py-2 text-xs font-semibold rounded-lg border transition-colors hover:bg-white/5"
+              className="mt-4 px-6 py-3 text-sm font-semibold rounded-lg border transition-colors hover:bg-white/5"
               style={{ borderColor: 'var(--color-borde)', color: 'var(--color-texto-secundario)' }}
             >
               <RefreshCw className="w-3.5 h-3.5 inline mr-1.5" />
@@ -333,7 +370,7 @@ export default function PaginaDashboard() {
       )}
 
       {/* ── ACTIVIDAD RECIENTE ── */}
-      <section>
+      <section className="hidden md:block">
         <h2 className="text-base font-bold mb-4 flex items-center gap-2">
           <Clock className="w-5 h-5" style={{ color: 'var(--color-texto-tenue)' }} />
           Actividad Reciente
@@ -368,7 +405,7 @@ export default function PaginaDashboard() {
                     }} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium leading-tight truncate">{item.tipoTrabajo}</p>
+                    <p className="text-sm font-medium leading-tight truncate">{item.tipoTrabajo ?? '—'}</p>
                     <p className="text-xs mt-0.5 opacity-80" style={{ color: 'var(--color-texto-secundario)' }}>
                       {item.sucursal?.nombre} · {item.supervisor?.usuario?.nombreCompleto}
                     </p>
@@ -376,10 +413,18 @@ export default function PaginaDashboard() {
                 </div>
                 <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto shrink-0 mt-1 sm:mt-0">
                   <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{
-                    backgroundColor: item.estado === 'COMPLETADA' ? 'rgba(34,197,94,0.15)' : 'rgba(59,130,246,0.15)',
-                    color: item.estado === 'COMPLETADA' ? 'var(--color-exito-500)' : 'var(--color-primary-400)',
+                    backgroundColor:
+                      item.estado === 'COMPLETADA' ? 'rgba(34,197,94,0.15)' :
+                      item.estado === 'CANCELADA'  ? 'rgba(107,114,128,0.15)' :
+                      'rgba(59,130,246,0.15)',
+                    color:
+                      item.estado === 'COMPLETADA' ? 'var(--color-exito-500)' :
+                      item.estado === 'CANCELADA'  ? 'var(--color-texto-tenue)' :
+                      'var(--color-primary-400)',
                   }}>
-                    {item.estado === 'COMPLETADA' ? 'Completada' : 'En Progreso'}
+                    {item.estado === 'COMPLETADA' ? 'Completada' :
+                     item.estado === 'CANCELADA'  ? 'Cancelada' :
+                     'En Progreso'}
                   </span>
                   <p className="text-xs mt-0 sm:mt-1 font-medium" style={{ color: 'var(--color-texto-secundario)' }}>
                     {new Date(item.creadoEn).toLocaleDateString('es-PE', { timeZone: 'UTC' })}

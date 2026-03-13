@@ -252,6 +252,39 @@ El sistema se compone de los siguientes módulos. Cada uno tiene su propia secci
 
 ---
 
+## 🔄 Sincronización entre Equipos (Trabajo ↔ Casa)
+
+Esta sección detalla el flujo de trabajo diario para sincronizar la base de datos entre la PC del Trabajo (Docker Desktop estándar) y la PC de Casa (Virtualización Híbrida: Ubuntu + Vagrant + VirtualBox).
+
+### 1. Salida (Desde la PC del Trabajo - Docker Desktop)
+
+Abre tu terminal en Windows y exporta la base de datos:
+
+```bash
+docker exec -t hse_postgres_db pg_dumpall -c -U Ramosa > backup_hse.sql
+```
+
+Sube este archivo `backup_hse.sql` a tu repositorio, USB o nube.
+
+### 2. Entrada (En la PC de Casa - Vagrant/LTSC)
+
+Coloca el archivo `backup_hse.sql` dentro de la carpeta `mi-servidor-linux` en tu Windows.
+
+Abre la terminal, entra al Linux con `vagrant ssh` y asegúrate de que Docker esté arriba.
+
+Ejecuta la importación (Nota el uso de `sudo` y la ruta `/vagrant/`):
+
+```bash
+sudo docker exec -i hse_postgres_db psql -U Ramosa -d hse_database < /vagrant/backup_hse.sql
+```
+
+### 3. Actualización de Requisitos
+
+> [!NOTE]
+> El puerto `5432` está mapeado en ambas máquinas a `localhost`, por lo que el archivo `.env` del Backend **NO necesita cambios** al moverte de casa al trabajo. Como configuramos el Vagrantfile con `forwarded_port: 5432`, tu proyecto siempre creerá que la base de datos está en su propia PC.
+
+---
+
 ## ⚠️ Troubleshooting (Problemas Comunes y Soluciones)
 
 | Error de Terminal / CLI                                        | Causa Habitual                                                                                                                 | Solución Recomendada                                                                                                                          |

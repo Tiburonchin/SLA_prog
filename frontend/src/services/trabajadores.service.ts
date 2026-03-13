@@ -254,3 +254,56 @@ export const sucursalesService = {
     await api.delete(`/sucursales/${id}`);
   },
 };
+
+// ── Tipos para el módulo Incidentes ──────────────────────────────────────────
+
+/** Refleja el enum TipoIncidente del backend (Art. 82 Ley 29783) */
+export type TipoIncidente =
+  | 'ACCIDENTE_LEVE'
+  | 'ACCIDENTE_INCAPACITANTE'
+  | 'ACCIDENTE_MORTAL'
+  | 'INCIDENTE_PELIGROSO'
+  | 'CASI_ACCIDENTE'
+  | 'CONDICION_INSEGURA'
+  | 'ACTO_INSEGURO';
+
+export const TIPO_INCIDENTE_LABEL: Record<TipoIncidente, string> = {
+  ACCIDENTE_LEVE:           'Accidente Leve',
+  ACCIDENTE_INCAPACITANTE:  'Accidente Incapacitante',
+  ACCIDENTE_MORTAL:         'Accidente Mortal',
+  INCIDENTE_PELIGROSO:      'Incidente Peligroso',
+  CASI_ACCIDENTE:           'Casi Accidente',
+  CONDICION_INSEGURA:       'Condición Insegura',
+  ACTO_INSEGURO:            'Acto Inseguro',
+};
+
+export interface IncidenteRapidoData {
+  /** Tipo de evento según clasificación SUNAFIL / Art. 82 Ley 29783 */
+  tipo: TipoIncidente;
+  /** UUID del trabajador involucrado (debe estar activo y no CESADO) */
+  trabajadorId: string;
+  /** Descripción breve del evento — máximo 500 caracteres */
+  descripcionBreve: string;
+}
+
+export interface IncidenteRapidoRespuesta {
+  id: string;
+  descripcion: string;
+  fechaEvento: string;
+  tipo: TipoIncidente;
+  trabajadorId: string;
+}
+
+/**
+ * Servicio para el endpoint POST /api/incidentes/rapido
+ *
+ * Permite a COORDINADOR y SUPERVISOR registrar un incidente en 3 campos
+ * cumpliendo el Art. 82 de la Ley 29783 (plazo máximo de 24 h para reporte).
+ * El trabajador debe estar activo y con estadoLaboral !== 'CESADO'.
+ */
+export const incidentesService = {
+  async reportarRapido(datos: IncidenteRapidoData): Promise<IncidenteRapidoRespuesta> {
+    const { data } = await api.post<IncidenteRapidoRespuesta>('/incidentes/rapido', datos);
+    return data;
+  },
+};

@@ -3,12 +3,7 @@ import {
   IsBoolean, IsNumber, IsArray, ValidateNested, IsEnum,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
-
-export enum EstadoInspeccion {
-  EN_PROGRESO = 'EN_PROGRESO',
-  COMPLETADA = 'COMPLETADA',
-  CANCELADA = 'CANCELADA',
-}
+import { TipoInspeccion } from '@prisma/client';
 
 export class ItemChecklistDto {
   @IsString()
@@ -41,6 +36,15 @@ export class CrearInspeccionDto {
   @IsNotEmpty()
   @Transform(({ value }) => value?.trim())
   tipoTrabajo: string;
+
+  // Sinergia con Equipos — PRE_USO requiere equipoId
+  @IsOptional()
+  @IsEnum(TipoInspeccion)
+  tipoInspeccion?: TipoInspeccion;
+
+  @IsOptional()
+  @IsUUID()
+  equipoId?: string;
 
   @IsOptional()
   @IsArray()

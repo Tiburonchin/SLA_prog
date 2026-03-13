@@ -149,7 +149,7 @@ function ModalIncidente({ onCerrar }: { onCerrar: () => void }) {
                 <label className="block text-sm font-semibold mb-2.5" style={{ color: 'var(--color-texto-secundario)' }}>
                   Tipo de incidente <span className="text-red-500">*</span>
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="flex flex-col gap-2">
                   {TIPOS_INCIDENTE.map(t => {
                     const c = COLOR_PELIGRO[t.peligro];
                     const activo = tipo === t.val;
@@ -283,11 +283,11 @@ export default function BottomNav() {
 
   // Ítems izquierdos y derechos al botón central de incidente
   const izquierda = [
-    { nombre: 'Escáner', ruta: '/escaner',      icono: ScanLine },
+    { nombre: 'Inspecciones', ruta: '/inspecciones', icono: ClipboardCheck },
   ];
   const derecha = [
-    { nombre: 'Inspecciones', ruta: '/inspecciones', icono: ClipboardCheck },
-    { nombre: 'Mis Tareas',   ruta: '/inspecciones', icono: ListTodo       },
+    { nombre: 'Escáner',      ruta: '/escaner',      icono: ScanLine       },
+    { nombre: 'Reportes',     ruta: '/reportes',     icono: ListTodo       },
   ];
 
   const isActive = (ruta: string) =>
@@ -304,7 +304,7 @@ export default function BottomNav() {
       aria-current={isActive(ruta) ? 'page' : undefined}
     >
       <Icono className={`w-6 h-6 mb-1 ${isActive(ruta) ? 'scale-110' : ''} transition-transform`} />
-      <span className="text-[10px] font-medium tracking-wide leading-none">{nombre}</span>
+      <span className="text-xs font-medium tracking-wide leading-none">{nombre}</span>
     </Link>
   );
 

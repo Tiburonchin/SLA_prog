@@ -45,3 +45,38 @@ Como custodios del proyecto, registramos las configuraciones que refinaron el pr
 ## 4. Notas de TSDoc (Regla HSE-DOCS)
 
 El equipo de desarrollo ha documentado orgánicamente estos archivos mediante `JSDoc/TSDoc`, comentando la abstracción de compresión de imágenes y las variables de UI interactivas directamente antes de la definición de los componentes maestros funcionales (e.g., `comprimirImagen`, interfaces auxiliares de formulario y dependencias offline Zustand).
+
+---
+
+## 5. Manejo de Errores y Casos Extremos (Edge Cases)
+
+Esta sección documenta los comportamientos del módulo ante condiciones límite comprobadas durante el Sprint Estabilización (Fase 3.1 — 2026-03-06). Cada ítem describe la condición, la respuesta del sistema y la capa que aplica la protección.
+
+### 5.1 Capa de API / Backend (NestJS)
+
+| Condición | Respuesta | Capa |
+| :-------- | :-------- | :--- |
+| `GET /trabajadores/:id` con UUID inexistente | `404 Not Found` — `PrismaExceptionFilter` atrapa `P2025` y devuelve `{ statusCode: 404, message: 'Registro no encontrado' }` | `PrismaExceptionFilter` (global) |
+| `POST /trabajadores` con `dni` duplicado | `409 Conflict` — `PrismaExceptionFilter` atrapa `P2002` y devuelve `{ statusCode: 409, message: 'Ya existe un registro con ese valor único' }` | `PrismaExceptionFilter` (global) |
+| Payload con campo desconocido (ej. `"hackerField": true`) | `400 Bad Request` — `ValidationPipe` con `forbidNonWhitelisted: true` rechaza el payload antes de alcanzar el servicio | `ValidationPipe` (global) |
+| Rol `JEFATURA` intenta `DELETE /trabajadores/:id` | `403 Forbidden` — `RolesGuard` valida el decorator `@Roles('COORDINADOR')` | `RolesGuard` |
+| `POST /incidentes/rapido` con `trabajadorId` de un trabajador con `estadoLaboral: 'CESADO'` | `400 Bad Request` — `IncidentesService.reporteRapido()` valida `activo && estadoLaboral !== 'CESADO'` explícitamente antes de persistir | `IncidentesService` (lógica de negocio) |
+| FK de `sucursalId` inexistente en `POST /trabajadores` | `400 Bad Request` — `PrismaExceptionFilter` atrapa `P2003` (FK violation) | `PrismaExceptionFilter` (global) |
+
+### 5.2 Casos de Estado Nulo (Frontend)
+
+| Condición | Comportamiento en UI |
+| :-------- | :------------------- |
+| `emoFecha` es `null` o `undefined` | Función `diasHasta()` retorna `null`; el badge de estado EMO muestra `—` en lugar de un número de días. No lanza `NaN`. |
+| `foto` del trabajador es `null` | El componente de imagen muestra un avatar placeholder SVG inline. No lanza error de `<img src={null}>`. |
+| Respuesta del servidor tarda > 2s | Skeleton loaders permanecen visibles durante el fetch. La tabla no muestra filas vacías ni estado blanco. |
+| Fallo de red en la carga de trabajadores | El estado de Zustand queda en `isLoading: false, error: 'Error de conexión'`; la UI muestra el componente `OfflineFallback`. |
+| Paginación más allá del total registros | El servicio backend normaliza la página al máximo válido vía `Math.min(page, totalPages)`; el frontend no navega a una página vacía. |
+
+### 5.3 Consideraciones de Borrado Lógico (Soft-Delete)
+
+- El trabajador nunca se **elimina físicamente** de la base de datos (`deletedAt` pattern con `@SoftDelete`).
+- `GET /trabajadores` filtra automáticamente `deletedAt IS NOT NULL` vía Prisma middleware global.
+- Un trabajador con `deletedAt` activo no puede ser vinculado a nuevas inspecciones, amonestaciones ni incidentes; la validación ocurre en la capa de servicio de cada módulo dependiente.
+- El historial de inspecciones previas a la desactivación permanece **intacto e inmutable** para garantizar la trazabilidad ante auditorías SUNAFIL.
+

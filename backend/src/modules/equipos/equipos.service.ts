@@ -25,22 +25,31 @@ export class EquiposService {
     return this.prisma.equipo.findMany({
       where,
       include: {
+        sucursal: { select: { id: true, nombre: true } },
         calibraciones: {
           orderBy: { proximaCalibracion: 'desc' },
           take: 1,
         },
-        _count: { select: { calibraciones: true } },
+        _count: { select: { calibraciones: true, mantenimientos: true, autorizaciones: true } },
       },
       orderBy: { nombre: 'asc' },
     });
   }
 
-  // Detalle de equipo con historial de calibraciones
+  // Detalle de equipo con historial completo
   async obtenerPorId(id: string) {
     const equipo = await this.prisma.equipo.findUnique({
       where: { id },
       include: {
+        sucursal: { select: { id: true, nombre: true } },
         calibraciones: { orderBy: { fechaCalibracion: 'desc' } },
+        mantenimientos: { orderBy: { fechaMantenimiento: 'desc' }, take: 10 },
+        autorizaciones: {
+          include: { trabajador: { select: { id: true, nombreCompleto: true, dni: true } } },
+          orderBy: { creadoEn: 'desc' },
+        },
+        inspecciones: { orderBy: { creadoEn: 'desc' }, take: 5 },
+        ejecucionesLoto: { orderBy: { creadoEn: 'desc' }, take: 5 },
       },
     });
 
@@ -48,11 +57,48 @@ export class EquiposService {
     return equipo;
   }
 
+  // ────────────────────────────────────────────────────────────────────────
+  // Brecha 5: Cálculo de MTBF (Mean Time Between Failures)
+  // MTBF = Σ(períodos operativos) / número de fallas
+  // ────────────────────────────────────────────────────────────────────────
+  async calcularMtbf(equipoId: string): Promise<{ mtbfHoras: number | null; totalFallas: number; horas: number }> {
+    const equipo = await this.prisma.equipo.findUnique({ where: { id: equipoId } });
+    if (!equipo) throw new NotFoundException('Equipo no encontrado');
+
+    // Obtener mantenimientos correctivos ordenados por fecha
+    const mantenimientos = await this.prisma.mantenimiento.findMany({
+      where: {
+        equipoId,
+        tipoMantenimiento: 'CORRECTIVO',
+      },
+      orderBy: { fechaMantenimiento: 'asc' },
+      select: { fechaMantenimiento: true },
+    });
+
+    const totalFallas = mantenimientos.length;
+
+    if (totalFallas < 2) {
+      return { mtbfHoras: null, totalFallas, horas: equipo.horasOperadasActuales ?? 0 };
+    }
+
+    // Calcular tiempo total operativo entre la primera y última falla
+    const primeraFalla = mantenimientos[0].fechaMantenimiento;
+    const ultimaFalla = mantenimientos[totalFallas - 1].fechaMantenimiento;
+    const msOperativos = ultimaFalla.getTime() - primeraFalla.getTime();
+    const horasOperativas = msOperativos / (1000 * 60 * 60);
+
+    // MTBF = horas operativas / (fallas - 1) intervalos
+    const mtbfHoras = Math.round((horasOperativas / (totalFallas - 1)) * 100) / 100;
+
+    return { mtbfHoras, totalFallas, horas: equipo.horasOperadasActuales ?? 0 };
+  }
+
   // Buscar equipo por tag NFC
   async obtenerPorNfc(nfcTagId: string) {
     const equipo = await this.prisma.equipo.findUnique({
       where: { nfcTagId },
       include: {
+        sucursal: { select: { id: true, nombre: true } },
         calibraciones: { orderBy: { fechaCalibracion: 'desc' } },
       },
     });
@@ -61,14 +107,35 @@ export class EquiposService {
     return equipo;
   }
 
-  // Crear equipo
+  // Crear equipo con campos expandidos
   async crear(dto: CrearEquipoDto) {
     const existente = await this.prisma.equipo.findUnique({ where: { numeroSerie: dto.numeroSerie } });
     if (existente) throw new ConflictException('Ya existe un equipo con ese número de serie');
 
     return this.prisma.equipo.create({
-      data: dto,
-      include: { calibraciones: true },
+      data: {
+        nombre: dto.nombre,
+        numeroSerie: dto.numeroSerie,
+        marca: dto.marca,
+        modelo: dto.modelo,
+        estado: dto.estado,
+        descripcion: dto.descripcion,
+        nfcTagId: dto.nfcTagId,
+        sucursalId: dto.sucursalId,
+        ubicacionFisica: dto.ubicacionFisica,
+        tipoEquipo: dto.tipoEquipo,
+        fechaFabricacion: dto.fechaFabricacion ? new Date(dto.fechaFabricacion) : undefined,
+        fechaAdquisicion: dto.fechaAdquisicion ? new Date(dto.fechaAdquisicion) : undefined,
+        vidaUtilMeses: dto.vidaUtilMeses,
+        proximoMantenimiento: dto.proximoMantenimiento ? new Date(dto.proximoMantenimiento) : undefined,
+        horasOperadasActuales: dto.horasOperadasActuales,
+        horasLimiteMantenimiento: dto.horasLimiteMantenimiento,
+        requiereLoto: dto.requiereLoto,
+        puntosBloqueo: dto.puntosBloqueo,
+        energiasPeligrosas: dto.energiasPeligrosas,
+        eppObligatorio: dto.eppObligatorio,
+      },
+      include: { calibraciones: true, sucursal: { select: { id: true, nombre: true } } },
     });
   }
 
@@ -77,14 +144,22 @@ export class EquiposService {
     const equipo = await this.prisma.equipo.findUnique({ where: { id } });
     if (!equipo) throw new NotFoundException('Equipo no encontrado');
 
+    const data: any = { ...dto };
+    if (dto.fechaFabricacion) data.fechaFabricacion = new Date(dto.fechaFabricacion);
+    if (dto.fechaAdquisicion) data.fechaAdquisicion = new Date(dto.fechaAdquisicion);
+    if (dto.proximoMantenimiento) data.proximoMantenimiento = new Date(dto.proximoMantenimiento);
+
     return this.prisma.equipo.update({
       where: { id },
-      data: dto,
-      include: { calibraciones: { orderBy: { fechaCalibracion: 'desc' }, take: 1 } },
+      data,
+      include: {
+        calibraciones: { orderBy: { fechaCalibracion: 'desc' }, take: 1 },
+        sucursal: { select: { id: true, nombre: true } },
+      },
     });
   }
 
-  // Añadir una calibración al historial
+  // Añadir una calibración al historial (con campos INACAL)
   async agregarCalibracion(dto: CrearCalibracionDto) {
     const equipo = await this.obtenerPorId(dto.equipoId);
 
@@ -102,6 +177,9 @@ export class EquiposService {
         proximaCalibracion: pC,
         certificadoUrl: dto.certificadoUrl,
         observaciones: dto.observaciones,
+        entidadCertificadora: dto.entidadCertificadora,
+        numeroCertificado: dto.numeroCertificado,
+        estadoResultado: dto.estadoResultado,
       },
     });
   }

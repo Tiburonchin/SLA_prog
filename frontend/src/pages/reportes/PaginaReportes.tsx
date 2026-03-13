@@ -143,7 +143,7 @@ export default function PaginaReportes() {
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={amonPorSucursal}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="sucursal" tick={{ fontSize: 12 }} stroke="rgba(255,255,255,0.3)" />
+                <XAxis dataKey="sucursal" tick={{ fontSize: 12 }} stroke="rgba(255,255,255,0.3)" angle={-30} textAnchor="end" height={60} />
                 <YAxis tick={{ fontSize: 12 }} stroke="rgba(255,255,255,0.3)" />
                 <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: 8, fontSize: 12 }} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
@@ -166,7 +166,7 @@ export default function PaginaReportes() {
             <ResponsiveContainer width="100%" height={280}>
               <PieChart>
                 <Pie data={pieDataSeveridad} cx="50%" cy="50%" innerRadius={60} outerRadius={100}
-                  dataKey="value" paddingAngle={3} label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}>
+                  dataKey="value" paddingAngle={3} label={window.innerWidth >= 640 ? ({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%` : undefined}>
                   {pieDataSeveridad.map((_, i) => (
                     <Cell key={i} fill={COLORES_SEVERIDAD[i]} />
                   ))}
@@ -191,7 +191,7 @@ export default function PaginaReportes() {
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie data={pieDataInsp} cx="50%" cy="50%" innerRadius={55} outerRadius={95}
-                  dataKey="value" paddingAngle={3} label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}>
+                  dataKey="value" paddingAngle={3} label={window.innerWidth >= 640 ? ({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%` : undefined}>
                   {pieDataInsp.map((_, i) => (
                     <Cell key={i} fill={COLORES_ESTADO[i]} />
                   ))}

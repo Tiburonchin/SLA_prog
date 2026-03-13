@@ -13,7 +13,7 @@ export class InspeccionesController {
 
   // GET /api/inspecciones
   @Get()
-  async obtenerTodas(@Query() filtros: { supervisorId?: string; sucursalId?: string; estado?: string }) {
+  async obtenerTodas(@Query() filtros: { supervisorId?: string; sucursalId?: string; estado?: string; tipoInspeccion?: string; equipoId?: string }) {
     return this.inspeccionesService.obtenerTodas(filtros);
   }
 

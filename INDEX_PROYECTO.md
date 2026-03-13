@@ -15,7 +15,7 @@ Estos documentos contienen la verdad absoluta sobre qué es el sistema y cómo e
 | :------------------------------------ | :----------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`PRD - Sistema de Gestión HSE.md`** | `/docs/core` | **Product Requirements Document.** Define las reglas de negocio, los roles (Admin, Auditor, Operador) y los requerimientos funcionales de cada módulo (Trabajadores, Inspecciones, etc).        |
 | **`Tech Stack - Sistema HSE.md`**     | `/docs/core` | **Stack Tecnológico.** Define las tecnologías estrictas (NestJS, React, PostgreSQL, Docker) y los patrones de arquitectura que DEBES respetar. No sugieras tecnologías fuera de este documento. |
-| **`GUIA_EJECUCION.md`**               | Raíz (`/`)   | **Guía de Inicialización.** Instrucciones exactas sobre cómo levantar el proyecto en local usando Docker y los scripts de `npm` correctos.                                                      |
+| **`GUIA_EJECUCION.md`**               | Raíz (`/`)   | **Guía de Inicialización.** Instrucciones exactas sobre cómo levantar el proyecto en local usando Docker y scripts de `npm` correctos. Incluye el **flujo de sincronización entre Trabajo y Casa**. |
 
 ---
 

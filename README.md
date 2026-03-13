@@ -24,30 +24,35 @@ El **Sistema de Gestión HSE** es una aplicación web diseñada específicamente
 ### 🔹 Módulos Core
 
 #### 1. **Base de Datos Maestra**
+
 - Gestión completa de trabajadores con expedientes 360°
 - Registro de supervisores con permisos por zonas
 - Inventario de equipos/herramientas con control de calibraciones
 - Matrices IPC (Identificación de Peligros por Cargo)
 
 #### 2. **Perfil del Trabajador**
+
 - Dashboard individual con datos médicos y laborales
 - Historial de EPPs entregados y amonestaciones
 - Semáforo de certificaciones vigentes
 - Código QR dinámico para acceso rápido en campo
 
 #### 3. **Inspecciones y Permisos**
+
 - Checklists dinámicos según ubicación y matriz IPC
 - Captura de evidencia fotográfica con metadatos
 - Validación automática de herramientas vs. calibraciones
 - Registro GPS en tiempo real
 
 #### 4. **Gestión de Amonestaciones**
+
 - Formulario ágil de registro (<1 minuto)
 - Tipificación estructurada de faltas (Leve/Grave/Crítica)
 - Adjuntos visuales y descripción de hechos
 - Notificaciones automáticas a RRHH
 
 #### 5. **Dashboard y Reportes**
+
 - Analytics en tiempo real con gráficos dinámicos
 - Sistema de alertas automáticas (calibraciones vencidas)
 - Exportación a PDF/CSV
@@ -64,6 +69,7 @@ El **Sistema de Gestión HSE** es una aplicación web diseñada específicamente
 ## 🏗️ Arquitectura y Stack Tecnológico
 
 ### Frontend
+
 - **React 18** con **TypeScript**
 - **Vite** - Build tool ultrarrápido
 - **Tailwind CSS** - Estilización utility-first
@@ -71,17 +77,20 @@ El **Sistema de Gestión HSE** es una aplicación web diseñada específicamente
 - **shadcn/ui** - Componentes UI accesibles
 
 ### Backend
+
 - **NestJS** con **TypeScript**
 - **Prisma ORM** - Interfaz type-safe con PostgreSQL
 - **JWT** - Autenticación y autorización
 - **Puppeteer** - Generación de reportes PDF
 
 ### Base de Datos
+
 - **PostgreSQL 15+** - Base de datos relacional
 - **Docker Compose** - Orquestación de contenedores
 
 ### DevOps & Testing
-- **Docker** - Contenedorización
+
+- **Docker / Vagrant** - Contenedorización e hibridación de entornos
 - **Jest** - Testing de seguridad y vulnerabilidades
 - **ESLint** - Linting de código
 
@@ -134,13 +143,14 @@ SLA_prog/
 
 ### Requisitos Previos
 
-| Software | Versión | Descarga |
-|----------|---------|----------|
-| Node.js | 18.x+ | [nodejs.org](https://nodejs.org/) |
-| npm | 9.x+ | Incluido con Node.js |
-| Docker Desktop | 4.x+ | [docker.com](https://www.docker.com/) |
+| Software       | Versión | Descarga                              |
+| -------------- | ------- | ------------------------------------- |
+| Node.js        | 18.x+   | [nodejs.org](https://nodejs.org/)     |
+| npm            | 9.x+    | Incluido con Node.js                  |
+| Docker Desktop | 4.x+    | [docker.com](https://www.docker.com/) |
 
 **Verificación rápida:**
+
 ```bash
 node -v    # Debe retornar v18.x o superior
 npm -v     # Debe retornar v9.x o superior
@@ -160,7 +170,11 @@ cd SLA_prog
 docker compose up -d
 ```
 
+> [!NOTE]
+> **Compatibilidad de Entornos:** El ecosistema es 100% compatible con **Docker Desktop** (PC Trabajo) y **Virtualización Híbrida Vagrant + Ubuntu** (PC Casa). Revisar `GUIA_EJECUCION.md` para el flujo de sincronización de Base de Datos.
+
 **Credenciales de desarrollo:**
+
 - **Usuario:** `Ramosa`
 - **Password:** `Ramosa3097`
 - **Base de Datos:** `hse_database`
@@ -174,6 +188,7 @@ npm install
 ```
 
 **Crear archivo `.env` en `/backend`:**
+
 ```env
 # Conexión a Base de Datos
 DATABASE_URL="postgresql://Ramosa:Ramosa3097@localhost:5432/hse_database?schema=public"
@@ -187,6 +202,7 @@ PORT=3001
 ```
 
 **Inicializar Prisma y Base de Datos:**
+
 ```bash
 npm run prisma:generate
 npm run prisma:migrate deploy
@@ -194,6 +210,7 @@ npm run prisma:seed  # Opcional: Cargar datos de prueba
 ```
 
 **Iniciar servidor backend:**
+
 ```bash
 npm run dev
 ```
@@ -203,17 +220,20 @@ npm run dev
 ### 🎨 Paso 4: Configurar Frontend
 
 **En una nueva terminal:**
+
 ```bash
 cd frontend
 npm install
 ```
 
 **Crear archivo `.env` en `/frontend`:**
+
 ```env
 VITE_API_URL=http://localhost:3001/api
 ```
 
 **Iniciar servidor de desarrollo:**
+
 ```bash
 npm run dev
 ```
@@ -224,18 +244,20 @@ npm run dev
 
 ### Usuarios de Desarrollo
 
-| Rol | Email | Contraseña | Permisos |
-|-----|-------|-----------|----------|
-| **Coordinador HSE** | `coordinador@hse.com` | `AdminHSE2026!` | Acceso total |
-| Supervisor 1 | `supervisor1@hse.com` | `AdminHSE2026!` | Operación en campo |
+| Rol                 | Email                 | Contraseña      | Permisos           |
+| ------------------- | --------------------- | --------------- | ------------------ |
+| **Coordinador HSE** | `coordinador@hse.com` | `AdminHSE2026!` | Acceso total       |
+| Supervisor 1        | `supervisor1@hse.com` | `AdminHSE2026!` | Operación en campo |
 
 ### 🛠️ Herramientas Adicionales
 
 **Prisma Studio** (Explorador visual de BD):
+
 ```bash
 cd backend
 npm run prisma:studio
 ```
+
 Abre automáticamente en: `http://localhost:5555`
 
 ## 📚 Documentación
@@ -296,11 +318,13 @@ Los reportes se generan automáticamente en `/system_tests/reports/`
 ## 🚀 Despliegue a Producción
 
 ### Opción 1: DigitalOcean (Recomendada)
+
 - **Backend:** DigitalOcean App Platform
 - **Frontend:** Netlify/Vercel
 - **Base de Datos:** DigitalOcean Managed PostgreSQL
 
 ### Opción 2: Supabase
+
 - **Backend:** Render
 - **Frontend:** Vercel
 - **Base de Datos:** Supabase PostgreSQL
@@ -327,6 +351,7 @@ Este es un proyecto educativo en desarrollo activo. Las contribuciones son bienv
 ## 📝 Roadmap
 
 ### Fase Actual (v1.0)
+
 - [x] Sistema CRUD completo para todos los módulos
 - [x] Autenticación y autorización RBAC
 - [x] Dashboard analítico
@@ -335,6 +360,7 @@ Este es un proyecto educativo en desarrollo activo. Las contribuciones son bienv
 - [x] Suite de tests de seguridad
 
 ### Próximas Funcionalidades (v2.0)
+
 - [ ] PWA completa con Service Workers
 - [ ] Modo 100% offline con sincronización
 - [ ] Portal del empleado (autogestión)
